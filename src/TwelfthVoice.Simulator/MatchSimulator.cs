@@ -83,7 +83,7 @@ public sealed class MatchSimulator
 
         _info = new MatchInfo
         {
-            MatchId = $"TV-{home.Id}-{away.Id}-{_options.Seed}",
+            MatchId = _options.MatchId ?? $"TV-{home.Id}-{away.Id}-{_options.Seed}",
             Competition = SyntheticLeague.CompetitionName,
             Venue = home.Stadium,
             KickOff = _options.KickOff ?? new DateTimeOffset(2026, 10, 24, 15, 0, 0, TimeSpan.Zero),

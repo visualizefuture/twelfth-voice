@@ -47,9 +47,9 @@ internal static class ConsoleRender
             Line($"  └ xG {h.Xg:0.00}–{a.Xg:0.00} · shots {h.Shots}–{a.Shots} · poss {h.PossessionPct:0}–{a.PossessionPct:0}% · pass {Narration.Pct(h.PassAccuracy)}–{Narration.Pct(a.PassAccuracy)} · control {state.ControlIndex:0}", ConsoleColor.DarkGray);
         }
 
-        if (profile.Follow is not null)
+        if (profile.FocusPlayerId is not null)
         {
-            var player = snapshot.Players.FirstOrDefault(p => string.Equals(p.PlayerId, profile.Follow, StringComparison.OrdinalIgnoreCase));
+            var player = snapshot.Players.FirstOrDefault(p => string.Equals(p.PlayerId, profile.FocusPlayerId, StringComparison.OrdinalIgnoreCase));
             if (player is not null)
             {
                 Line($"  └ {player.Name}: {player.Touches} touches · {player.PassesCompleted}/{player.PassesAttempted} passes · {player.Shots} shots ({player.Xg:0.00} xG) · {player.DistanceM / 1000:0.0} km · top {player.TopSpeedKmh:0.0} km/h · rating {player.Rating:0.0}", ConsoleColor.Green);

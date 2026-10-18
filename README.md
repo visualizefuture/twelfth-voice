@@ -15,12 +15,12 @@ Built for the *Microsoft × Premier League — Inside the Game* developer hackat
 | **Ingest** | A deterministic simulator generates football-realistic matches and streams events live (passes, carries, dribbles, shots, tackles, pressure, possession changes, cards, subs, sprints, tracking). | `TwelfthVoice.Simulator` |
 | **Interpret** | Running team and player stats, pass distance / accuracy / difficulty, ball and shot speed, xG, distance and top speed, plus rolling momentum, control-vs-chaos, pressing and tempo indicators. | `TwelfthVoice.Intelligence` |
 | **Explain** | Every insight carries a plain-language *why it matters*, an analyst note and the evidence numbers it was derived from. | `MatchAnalyzer`, `Narration`, `RecapBuilder` |
-| **Render** | Insights include a machine-readable overlay hint (template, placement, duration, priority) for synchronised graphics. | `OverlayHint` → Angular overlay *(in progress)* |
-| **Personalise** | Casual vs analyst modes, follow a club, player-focus mode; multi-language via AI agents. | CLI preview now; agents + Angular *(in progress)* |
+| **Render** | Insights include a machine-readable overlay hint (template, placement, duration, priority), streamed live over SignalR. | `OverlayHint`, `TwelfthVoice.Api`; Angular overlay *(in progress)* |
+| **Personalise** | Casual vs analyst modes, favourite club, player-focus mode, language preference — each viewer gets their own stream. | `InsightPersonalizer`, SignalR hub; translation via agents *(in progress)* |
 
 ## Quick start
 
-Requires the [.NET 8 SDK](https://dotnet.microsoft.com/download) (or later).
+Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download).
 
 ```bash
 dotnet build
@@ -44,6 +44,41 @@ dotnet run --project src/TwelfthVoice.Cli -- generate --home KIN --away WMC --se
 
 The same seed and teams always produce the same match, event for event, which makes demos and tests repeatable.
 
+## Live API
+
+```bash
+dotnet run --project src/TwelfthVoice.Api
+```
+
+Then open **http://localhost:5080** for the live console: pick two clubs, kick off, and switch between casual and analyst modes, a favourite club or a single player while the match plays.
+
+**Storage.** By default the API uses SQL Server LocalDB (installed with Visual Studio) and creates the `TwelfthVoice` database on first run. If no database is reachable it logs a warning and keeps running in memory; `GET /api/status` shows which mode is active. To skip SQL entirely, use the *http (memory only)* launch profile or set `Storage__Provider=None`. For Azure SQL, set `ConnectionStrings__TwelfthVoice`.
+
+**REST** (OpenAPI document at `/openapi/v1.json`):
+
+| Method | Route | Purpose |
+|---|---|---|
+| GET | `/api/teams` | Fictional clubs and squads |
+| POST | `/api/matches` | Simulate a match and start it live `{ homeTeamId, awayTeamId, seed, speed, autoStart }` |
+| GET | `/api/matches` | Live matches plus recent stored matches |
+| POST | `/api/matches/{id}/start` · `/pause` · `/resume` | Control playback |
+| PUT | `/api/matches/{id}/speed` | `{ speed }` match seconds per real second |
+| GET | `/api/matches/{id}/state` | Scoreboard, momentum, control, tempo (`?focusPlayerId=`) |
+| GET | `/api/matches/{id}/snapshot` | Full team and player statistics |
+| GET | `/api/matches/{id}/insights` | Personalised insights (`?mode=analyst&favoriteTeamId=HAR&focusPlayerId=HAR-09&language=es`) |
+| GET | `/api/matches/{id}/events` | Released events (`?after=sequence&type=Shot`) |
+| GET | `/api/matches/{id}/recap` | Automated recap |
+| POST / PUT / GET | `/api/profiles` | Save and load viewer profiles |
+| GET | `/api/status`, `/health` | Service and storage status |
+
+**SignalR** hub at `/hubs/match`:
+
+- Call `JoinMatch(matchId, profile)` → returns summary, match info, current state and recent insights so the screen can render at once.
+- Receive `insight` (personalised for that viewer), `state` (scoreboard strip, every ~30 match seconds and on key moments) and `status` (live / paused / finished / speed).
+- Call `UpdateProfile(profile)` to change mode, club, player or language mid-match, and `SubscribeEvents(true)` for the raw event feed (`event`), e.g. for an overlay renderer.
+
+A viewer profile is `{ mode: "Casual" | "Analyst", favoriteTeamId, focusPlayerId, language }`.
+
 ## Explainable by design
 
 The numbers on screen come from small, readable models in [`FootballMath`](src/TwelfthVoice.Domain/FootballMath.cs), and the simulator uses the *same* models to decide outcomes:
@@ -63,8 +98,9 @@ src/
   TwelfthVoice.Simulator     Fictional league, squad generator, match simulator, live feed
   TwelfthVoice.Intelligence  Stats, rolling indicators, insights, recap builder
   TwelfthVoice.Cli           Command-line runner (teams / generate / recap / replay)
+  TwelfthVoice.Api           ASP.NET Core API, SignalR hub, EF Core storage, live console page
 tests/
-  TwelfthVoice.Tests         xUnit tests for simulator realism, stats and insights
+  TwelfthVoice.Tests         xUnit tests for simulator realism, stats, insights, personalisation and live sessions
 docs/
   ARCHITECTURE.md            Target architecture and build plan
   EVENT-SCHEMA.md            Event and insight formats for overlay renderers
@@ -74,7 +110,8 @@ docs/
 
 - [x] Synthetic match generator and live feed
 - [x] Stats, trends and rule-based explanations
-- [ ] ASP.NET Core API + SignalR live channel, Azure SQL persistence
+- [x] ASP.NET Core API + SignalR live channel, SQL persistence (LocalDB / Azure SQL)
+- [x] Personalisation: casual vs analyst, favourite club, player focus, language preference
 - [ ] Multi-agent layer (Microsoft Agent Framework + Microsoft Foundry): Analyst, Explainer, Storyteller, Localizer, Director
 - [ ] MCP server exposing match state as tools
 - [ ] Angular broadcast overlay and personalised viewer modes

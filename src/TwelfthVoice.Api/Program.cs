@@ -1,0 +1,51 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using TwelfthVoice.Api.Endpoints;
+using TwelfthVoice.Api.Hubs;
+using TwelfthVoice.Api.Live;
+using TwelfthVoice.Api.Storage;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Same JSON shape everywhere: camelCase, enums as strings, nulls omitted.
+static void ConfigureJson(JsonSerializerOptions options)
+{
+    options.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    options.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+    options.Converters.Add(new JsonStringEnumConverter());
+}
+
+builder.Services.ConfigureHttpJsonOptions(o => ConfigureJson(o.SerializerOptions));
+builder.Services.AddSignalR().AddJsonProtocol(o => ConfigureJson(o.PayloadSerializerOptions));
+builder.Services.AddOpenApi();
+builder.Services.AddHealthChecks();
+
+string[] allowedOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? new[] { "http://localhost:4200" };
+builder.Services.AddCors(options => options.AddPolicy("frontend", policy => policy
+    .WithOrigins(allowedOrigins)
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    .AllowCredentials()));
+
+builder.Services.AddTwelfthVoiceStorage(builder.Configuration);
+builder.Services.AddSingleton<ViewerConnections>();
+builder.Services.AddSingleton<IMatchBroadcaster, SignalRBroadcaster>();
+builder.Services.AddSingleton<MatchRegistry>();
+
+var app = builder.Build();
+
+app.UseCors("frontend");
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
+app.MapOpenApi();
+app.MapHealthChecks("/health");
+app.MapTwelfthVoiceApi();
+app.MapHub<MatchHub>("/hubs/match");
+
+app.Run();
+
+/// <summary>Exposed so integration tests can host the API with WebApplicationFactory.</summary>
+public partial class Program
+{
+}

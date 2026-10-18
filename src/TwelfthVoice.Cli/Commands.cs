@@ -103,20 +103,25 @@ internal static class Commands
         var match = MatchSimulator.Run(cli.ToSimulationOptions());
         var info = match.Info;
         var analyzer = new MatchAnalyzer(info);
-        var profile = new ViewerProfile(
-            Mode: string.Equals(cli.Get("mode"), "analyst", StringComparison.OrdinalIgnoreCase) ? ViewerMode.Analyst : ViewerMode.Casual,
-            Follow: cli.Get("follow")?.ToUpperInvariant());
+        string? follow = cli.Get("follow")?.ToUpperInvariant();
+        bool followsPlayer = follow is not null && follow.Contains('-');
+        var profile = new ViewerProfile
+        {
+            Mode = string.Equals(cli.Get("mode"), "analyst", StringComparison.OrdinalIgnoreCase) ? ViewerMode.Analyst : ViewerMode.Casual,
+            FocusPlayerId = followsPlayer ? follow : null,
+            FavoriteTeamId = followsPlayer ? follow![..3] : follow
+        };
         double speed = cli.GetDouble("speed", 60);
 
         ConsoleRender.Line($"{info.Home.Name} v {info.Away.Name} · {info.Venue} · {info.Competition}", ConsoleColor.White);
-        Console.WriteLine($"Seed {info.Seed} · Referee {info.Referee} · {info.Weather} · Mode {profile.Mode}{(profile.Follow is null ? "" : $" · Following {profile.Follow}")}");
+        Console.WriteLine($"Seed {info.Seed} · Referee {info.Referee} · {info.Weather} · Mode {profile.Mode}{(follow is null ? "" : $" · Following {follow}")}");
         Console.WriteLine(new string('─', 72));
 
         double nextScoreboard = 300;
         await foreach (var e in LiveFeed.PlayAsync(match.Events, speed, cancellationToken))
         {
             var insights = analyzer.Process(e);
-            foreach (var insight in insights.Where(profile.Wants))
+            foreach (var insight in insights.Where(i => InsightPersonalizer.Wants(profile, i)))
                 ConsoleRender.PrintInsight(insight, profile);
 
             if (e.Type != EventType.TrackingSnapshot && e.MatchSecond >= nextScoreboard)
@@ -129,34 +134,5 @@ internal static class Commands
         Console.WriteLine(new string('─', 72));
         ConsoleRender.PrintRecap(RecapBuilder.Build(info, analyzer.Snapshot(), analyzer.Insights));
         return 0;
-    }
-}
-
-internal enum ViewerMode
-{
-    Casual,
-    Analyst
-}
-
-/// <summary>
-/// Early preview of the Personalize stage: the same insight stream filtered and rendered
-/// differently for different viewers.
-/// </summary>
-internal sealed record ViewerProfile(ViewerMode Mode, string? Follow)
-{
-    public bool Wants(Insight insight)
-    {
-        bool essential = insight.Kind is InsightKind.Goal or InsightKind.HalfTime or InsightKind.FullTime or InsightKind.Kickoff
-                         || insight.Importance >= 0.85;
-        if (essential) return true;
-
-        if (Follow is not null)
-        {
-            bool aboutFollowed = string.Equals(insight.TeamId, Follow, StringComparison.OrdinalIgnoreCase)
-                                 || insight.PlayerIds.Any(id => string.Equals(id, Follow, StringComparison.OrdinalIgnoreCase));
-            if (!aboutFollowed) return false;
-        }
-
-        return Mode == ViewerMode.Analyst || insight.Importance >= 0.45;
     }
 }
