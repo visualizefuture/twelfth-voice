@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Turns match events into statistics, trends (momentum, control vs chaos, pressing) and explainable insights.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TwelfthVoice.Domain\TwelfthVoice.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

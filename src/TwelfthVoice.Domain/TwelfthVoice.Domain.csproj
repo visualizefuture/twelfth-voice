@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Shared football domain model: teams, players, match events, pitch geometry and football maths.</Description>
+  </PropertyGroup>
+
+</Project>

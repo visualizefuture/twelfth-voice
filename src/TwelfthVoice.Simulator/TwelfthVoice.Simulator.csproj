@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Deterministic synthetic football match generator and live event feed.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TwelfthVoice.Domain\TwelfthVoice.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

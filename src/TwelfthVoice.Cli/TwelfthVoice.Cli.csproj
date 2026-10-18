@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>twelfth-voice</AssemblyName>
+    <Description>Command-line runner: generate synthetic matches, replay them live, print recaps.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TwelfthVoice.Domain\TwelfthVoice.Domain.csproj" />
+    <ProjectReference Include="..\TwelfthVoice.Simulator\TwelfthVoice.Simulator.csproj" />
+    <ProjectReference Include="..\TwelfthVoice.Intelligence\TwelfthVoice.Intelligence.csproj" />
+  </ItemGroup>
+
+</Project>
