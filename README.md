@@ -1,5 +1,7 @@
 # Twelfth Voice
 
+[![CI](https://github.com/visualizefuture/twelfth-voice/actions/workflows/ci.yml/badge.svg)](https://github.com/visualizefuture/twelfth-voice/actions/workflows/ci.yml)
+
 **Every fan gets their own match.**
 
 Twelfth Voice turns synthetic football events into explainable match intelligence: live stats, key moments, *why* they matter, broadcast-ready overlays and personalised commentary for every kind of viewer, from the casual fan to the data-hungry analyst, in any language.
@@ -15,7 +17,7 @@ Built for the *Microsoft × Premier League — Inside the Game* developer hackat
 | **Ingest** | A deterministic simulator generates football-realistic matches and streams events live (passes, carries, dribbles, shots, tackles, pressure, possession changes, cards, subs, sprints, tracking). | `TwelfthVoice.Simulator` |
 | **Interpret** | Running team and player stats, pass distance / accuracy / difficulty, ball and shot speed, xG, distance and top speed, plus rolling momentum, control-vs-chaos, pressing and tempo indicators. | `TwelfthVoice.Intelligence` |
 | **Explain** | Every insight carries a plain-language *why it matters*, an analyst note and the evidence numbers it was derived from. | `MatchAnalyzer`, `Narration`, `RecapBuilder` |
-| **Render** | Insights include a machine-readable overlay hint (template, placement, duration, priority), streamed live over SignalR. | `OverlayHint`, `TwelfthVoice.Api`; Angular overlay *(in progress)* |
+| **Render** | Insights include a machine-readable overlay hint (template, placement, duration, priority), streamed live over SignalR and drawn over a live pitch. | `OverlayHint`, `TwelfthVoice.Api`, `web/` |
 | **Personalise** | Casual vs analyst modes, favourite club, player-focus mode, language preference — each viewer gets their own stream. | `InsightPersonalizer`, SignalR hub; translation via agents *(in progress)* |
 
 ## Quick start
@@ -44,6 +46,24 @@ dotnet run --project src/TwelfthVoice.Cli -- generate --home KIN --away WMC --se
 
 The same seed and teams always produce the same match, event for event, which makes demos and tests repeatable.
 
+## Fan app (Angular)
+
+Requires [Node.js 22](https://nodejs.org/) or later. Run the API first, then in a second terminal:
+
+```bash
+cd web
+npm install
+npm start
+```
+
+Open **http://localhost:4200**. The dev server forwards `/api` and `/hubs` to the API on port 5080.
+
+- **Live pitch**: the ball moves through every action, the player on the ball is tagged with what they did (pass length, shot speed, sprint speed), and insights appear as broadcast graphics where their overlay hint says.
+- **Heat map and shot map** layers: the heat map follows whichever player you pick.
+- **Momentum chart**: who was on top, minute by minute, with goals marked.
+- **The story**: the personalised feed of key moments and why they matter.
+- **Your view**: fan or analyst, your club, follow a player, language.
+
 ## Live API
 
 ```bash
@@ -67,6 +87,7 @@ Then open **http://localhost:5080** for the live console: pick two clubs, kick o
 | GET | `/api/matches/{id}/snapshot` | Full team and player statistics |
 | GET | `/api/matches/{id}/insights` | Personalised insights (`?mode=analyst&favoriteTeamId=HAR&focusPlayerId=HAR-09&language=es`) |
 | GET | `/api/matches/{id}/events` | Released events (`?after=sequence&type=Shot`) |
+| GET | `/api/matches/{id}/timeline` | Momentum, control, xG and score every ~30 match seconds |
 | GET | `/api/matches/{id}/recap` | Automated recap |
 | POST / PUT / GET | `/api/profiles` | Save and load viewer profiles |
 | GET | `/api/status`, `/health` | Service and storage status |
@@ -99,6 +120,7 @@ src/
   TwelfthVoice.Intelligence  Stats, rolling indicators, insights, recap builder
   TwelfthVoice.Cli           Command-line runner (teams / generate / recap / replay)
   TwelfthVoice.Api           ASP.NET Core API, SignalR hub, EF Core storage, live console page
+web/                         Angular fan app: live pitch, overlays, momentum, stats, personalised feed
 tests/
   TwelfthVoice.Tests         xUnit tests for simulator realism, stats, insights, personalisation and live sessions
 docs/
@@ -114,7 +136,8 @@ docs/
 - [x] Personalisation: casual vs analyst, favourite club, player focus, language preference
 - [ ] Multi-agent layer (Microsoft Agent Framework + Microsoft Foundry): Analyst, Explainer, Storyteller, Localizer, Director
 - [ ] MCP server exposing match state as tools
-- [ ] Angular broadcast overlay and personalised viewer modes
+- [x] Angular fan app: live pitch with overlays, heat and shot maps, momentum chart, personalised feed
+- [x] Continuous integration: build and test on every pull request
 - [ ] Deployment to Azure Container Apps
 
 ## License

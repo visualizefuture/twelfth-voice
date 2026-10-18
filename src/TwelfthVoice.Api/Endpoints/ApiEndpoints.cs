@@ -120,6 +120,11 @@ public static class ApiEndpoints
             .WithName("GetEvents")
             .WithSummary("Events released so far (use 'after' to page by sequence).");
 
+        matches.MapGet("/{matchId}/timeline", (string matchId, MatchRegistry registry) =>
+                WithSession(registry, matchId, s => Results.Ok(s.Timeline())))
+            .WithName("GetTimeline")
+            .WithSummary("Momentum, control, xG and score sampled every ~30 match seconds.");
+
         matches.MapGet("/{matchId}/recap", (string matchId, MatchRegistry registry) =>
                 WithSession(registry, matchId, s => Results.Ok(s.Recap())))
             .WithName("GetRecap")

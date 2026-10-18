@@ -127,4 +127,17 @@ public sealed record JoinResult
     public required MatchInfo Info { get; init; }
     public required LiveState State { get; init; }
     public required IReadOnlyList<PersonalizedInsight> RecentInsights { get; init; }
+    public required IReadOnlyList<TimelinePoint> Timeline { get; init; }
 }
+
+/// <summary>One sample of the match story, taken every ~30 match seconds: drives the momentum chart.</summary>
+public sealed record TimelinePoint(
+    int Period,
+    double MatchSecond,
+    string Clock,
+    double Momentum,
+    double ControlIndex,
+    int HomeScore,
+    int AwayScore,
+    double HomeXg,
+    double AwayXg);

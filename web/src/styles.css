@@ -1,0 +1,86 @@
+/*
+  Twelfth Voice — floodlit-pitch palette.
+  The pitch is the hero; everything around it stays quiet.
+*/
+:root {
+  --night: #0f2b20;      /* page: deep turf under floodlights */
+  --night-2: #0b2219;    /* panels sit slightly darker */
+  --turf: #164233;
+  --turf-stripe: #1a4a39;
+  --chalk: #eef4ee;      /* lines and primary text */
+  --moss: #93ae9f;       /* secondary text */
+  --hairline: #24533f;
+  --floodlight: #f6c445; /* goals, focus, the one bright thing */
+  --red-card: #ff6b5b;
+
+  --home: #7fc8f8;       /* overwritten per match from club colours */
+  --away: #e0b03a;
+
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+
+  --step--1: 0.8125rem;
+  --step-0: 1rem;
+  --step-1: 1.25rem;
+  --step-2: 1.75rem;
+  --step-3: 2.5rem;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; min-height: 100%; }
+
+body {
+  background: var(--night);
+  color: var(--chalk);
+  font-family: var(--body);
+  font-size: var(--step-0);
+  line-height: 1.45;
+}
+
+button, select, input { font: inherit; color: inherit; }
+
+button {
+  cursor: pointer;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  border-radius: 6px;
+  padding: 6px 12px;
+}
+
+button:hover { border-color: var(--moss); }
+
+button.primary {
+  background: var(--floodlight);
+  border-color: var(--floodlight);
+  color: #1d1600;
+  font-weight: 600;
+}
+
+select, input {
+  background: var(--night-2);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  padding: 7px 9px;
+  width: 100%;
+}
+
+:focus-visible {
+  outline: 2px solid var(--floodlight);
+  outline-offset: 2px;
+}
+
+.muted { color: var(--moss); }
+
+.display {
+  font-family: var(--display);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
