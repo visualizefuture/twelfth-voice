@@ -59,6 +59,10 @@ public sealed record PersonalizedInsight
     public string? TeamId { get; init; }
     public IReadOnlyList<string> PlayerIds { get; init; } = Array.Empty<string>();
     public IReadOnlyDictionary<string, double> Evidence { get; init; } = new Dictionary<string, double>();
+
+    /// <summary>Event sequences the insight came from, so a renderer can draw them (e.g. a pass arrow).</summary>
+    public IReadOnlyList<int> SourceSequences { get; init; } = Array.Empty<int>();
+
     public required OverlayHint Overlay { get; init; }
     public Perspective Perspective { get; init; }
     public bool AboutFocusPlayer { get; init; }
@@ -117,6 +121,7 @@ public static class InsightPersonalizer
             TeamId = insight.TeamId,
             PlayerIds = insight.PlayerIds,
             Evidence = insight.Evidence,
+            SourceSequences = insight.SourceSequences,
             Overlay = overlay,
             Perspective = PerspectiveOf(profile, insight),
             AboutFocusPlayer = aboutPlayer,

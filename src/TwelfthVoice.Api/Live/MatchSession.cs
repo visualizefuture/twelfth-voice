@@ -25,6 +25,7 @@ public sealed class MatchSession
     private readonly IMatchStore _store;
     private readonly ILogger _logger;
     private readonly List<MatchEvent> _published = new();
+    private readonly List<TimelinePoint> _timeline = new();
 
     private int _next;
     private double _speed;
@@ -131,6 +132,11 @@ public sealed class MatchSession
             return _published.Where(e => e.Sequence > afterSequence).Take(take).ToList();
     }
 
+    public IReadOnlyList<TimelinePoint> Timeline()
+    {
+        lock (_gate) return _timeline.ToList();
+    }
+
     public MatchRecap Recap()
     {
         lock (_gate) return RecapBuilder.Build(Info, _analyzer.Snapshot(), _analyzer.Insights);
@@ -174,7 +180,8 @@ public sealed class MatchSession
             Match = summary,
             Info = Info,
             State = LiveState.From(summary, Snapshot(), profile.FocusPlayerId),
-            RecentInsights = recent.Skip(Math.Max(0, recent.Count - RecentInsightsOnJoin)).ToList()
+            RecentInsights = recent.Skip(Math.Max(0, recent.Count - RecentInsightsOnJoin)).ToList(),
+            Timeline = Timeline()
         };
     }
 
@@ -199,18 +206,19 @@ public sealed class MatchSession
                 if (previous is not null) await WaitForMatchTimeAsync(previous, current, cancellationToken);
                 await WaitWhilePausedAsync(cancellationToken);
 
+                bool stateDue = current.MatchSecond >= nextStateAt
+                                || current.Type is EventType.Goal or EventType.PeriodStart or EventType.PeriodEnd
+                                    or EventType.MatchEnd or EventType.RedCard;
+                if (stateDue) nextStateAt = current.MatchSecond + StateIntervalMatchSeconds;
+
                 IReadOnlyList<Insight> insights;
                 lock (_gate)
                 {
                     insights = _analyzer.Process(current);
                     _published.Add(current);
                     _next++;
+                    if (stateDue) _timeline.Add(ToTimelinePoint(_analyzer.Snapshot()));
                 }
-
-                bool stateDue = current.MatchSecond >= nextStateAt
-                                || current.Type is EventType.Goal or EventType.PeriodStart or EventType.PeriodEnd
-                                    or EventType.MatchEnd or EventType.RedCard;
-                if (stateDue) nextStateAt = current.MatchSecond + StateIntervalMatchSeconds;
 
                 _store.AppendEvent(current);
                 foreach (var insight in insights) _store.AppendInsight(insight);
@@ -289,6 +297,17 @@ public sealed class MatchSession
             _logger.LogWarning(ex, "Status broadcast failed for {MatchId}", MatchId);
         }
     }
+
+    private static TimelinePoint ToTimelinePoint(MatchSnapshot s) => new(
+        s.Period,
+        s.MatchSecond,
+        s.Clock,
+        s.State.Momentum,
+        s.State.ControlIndex,
+        s.HomeScore,
+        s.AwayScore,
+        Math.Round(s.Home.Xg, 2),
+        Math.Round(s.Away.Xg, 2));
 
     private static double ClampSpeed(double speed) =>
         double.IsNaN(speed) ? 60 : Math.Clamp(speed, MinSpeed, InstantSpeed);

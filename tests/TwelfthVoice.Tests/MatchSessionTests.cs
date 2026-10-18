@@ -54,6 +54,10 @@ public class MatchSessionTests
         Assert.Contains(broadcaster.Insights, i => i.Kind == InsightKind.FullTime);
         Assert.True(broadcaster.StateCount > 100, "Scoreboard state should be pushed regularly.");
 
+        var timeline = session.Timeline();
+        Assert.True(timeline.Count > 100, "Timeline should be sampled every ~30 match seconds.");
+        Assert.Equal(session.AllEvents[^1].HomeScore, timeline[^1].HomeScore);
+
         var summary = session.Summary();
         Assert.Equal(session.AllEvents[^1].HomeScore, summary.HomeScore);
         Assert.Equal(session.AllEvents[^1].AwayScore, summary.AwayScore);
