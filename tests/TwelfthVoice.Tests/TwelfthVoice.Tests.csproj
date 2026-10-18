@@ -22,6 +22,7 @@
     <ProjectReference Include="..\..\src\TwelfthVoice.Domain\TwelfthVoice.Domain.csproj" />
     <ProjectReference Include="..\..\src\TwelfthVoice.Simulator\TwelfthVoice.Simulator.csproj" />
     <ProjectReference Include="..\..\src\TwelfthVoice.Intelligence\TwelfthVoice.Intelligence.csproj" />
+    <ProjectReference Include="..\..\src\TwelfthVoice.Api\TwelfthVoice.Api.csproj" />
   </ItemGroup>
 
 </Project>

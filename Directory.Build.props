@@ -1,10 +1,10 @@
 <Project>
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <!-- Lets the apps run on a newer runtime (e.g. .NET 9) if .NET 8 isn't installed. -->
+    <!-- Lets the apps run on a newer runtime if the exact one is not installed. -->
     <RollForward>Major</RollForward>
     <Authors>Twelfth Voice</Authors>
     <Product>Twelfth Voice</Product>

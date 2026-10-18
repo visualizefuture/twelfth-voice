@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Twelfth Voice · Live Console</title>
+  <style>
+    :root {
+      --bg: #0b1020; --panel: #121933; --line: #24305a; --text: #e8ecf8; --muted: #8d97b8;
+      --accent: #43d9a3; --goal: #ffd166; --card: #ff5d73; --trend: #5ec8ff; --speed: #7cff9e;
+      --home: #7fc8f8; --away: #e0b03a;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); }
+    header { padding: 16px 20px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+    header h1 { margin: 0; font-size: 20px; letter-spacing: .5px; }
+    header span { color: var(--muted); font-size: 13px; }
+    main { display: grid; grid-template-columns: 300px 1fr; gap: 16px; padding: 16px 20px; }
+    @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+    .panel h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+    label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+    select, input { width: 100%; padding: 7px 8px; background: #0e1530; color: var(--text); border: 1px solid var(--line); border-radius: 6px; }
+    button { margin-top: 12px; padding: 8px 12px; border: 0; border-radius: 6px; background: var(--accent); color: #062018; font-weight: 600; cursor: pointer; }
+    button.secondary { background: #24305a; color: var(--text); }
+    .row { display: flex; gap: 8px; } .row > * { flex: 1; }
+    .scoreboard { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .score { font-size: 28px; font-weight: 700; letter-spacing: 1px; }
+    .clock { font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 600; }
+    .meters { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-top: 12px; }
+    .meter { background: #0e1530; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12px; color: var(--muted); }
+    .meter b { display: block; color: var(--text); font-size: 15px; margin-top: 2px; }
+    .bar { position: relative; height: 6px; background: #24305a; border-radius: 3px; margin-top: 6px; }
+    .bar i { position: absolute; top: -3px; width: 12px; height: 12px; border-radius: 50%; background: var(--trend); transform: translateX(-50%); transition: left .4s; }
+    #feed { list-style: none; margin: 12px 0 0; padding: 0; max-height: 60vh; overflow-y: auto; }
+    #feed li { border-left: 3px solid var(--line); padding: 8px 10px; margin-bottom: 8px; background: #0e1530; border-radius: 0 6px 6px 0; }
+    #feed li .t { color: var(--muted); font-size: 12px; margin-right: 6px; font-variant-numeric: tabular-nums; }
+    #feed li .h { font-weight: 600; }
+    #feed li .b { color: #c6cde6; font-size: 13px; margin-top: 3px; }
+    #feed li .n { color: var(--muted); font-size: 12px; margin-top: 3px; font-family: Consolas, monospace; }
+    #feed li.Goal { border-color: var(--goal); } #feed li.Card { border-color: var(--card); }
+    #feed li.MomentumShift, #feed li.PressingShift, #feed li.ControlShift, #feed li.TempoShift { border-color: var(--trend); }
+    #feed li.SpeedAlert, #feed li.DistanceMilestone { border-color: var(--speed); }
+    #feed li.favorite { background: #10233a; } #feed li.focus { box-shadow: inset 0 0 0 1px var(--speed); }
+    .player { margin-top: 12px; font-size: 13px; color: var(--speed); }
+    .muted { color: var(--muted); font-size: 12px; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Twelfth Voice</h1>
+  <span>Live console · every fan gets their own match</span>
+  <span id="storage" class="muted"></span>
+</header>
+<main>
+  <section class="panel">
+    <h2>Match</h2>
+    <div class="row">
+      <div><label for="home">Home</label><select id="home"></select></div>
+      <div><label for="away">Away</label><select id="away"></select></div>
+    </div>
+    <div class="row">
+      <div><label for="seed">Seed</label><input id="seed" type="number" value="7"></div>
+      <div><label for="speed">Speed</label><input id="speed" type="number" value="60" min="1"></div>
+    </div>
+    <button id="create">Kick off</button>
+    <div class="row">
+      <button id="pause" class="secondary">Pause</button>
+      <button id="resume" class="secondary">Resume</button>
+    </div>
+
+    <h2 style="margin-top:20px">Viewer</h2>
+    <label for="mode">Mode</label>
+    <select id="mode"><option value="Casual">Casual fan</option><option value="Analyst">Analyst</option></select>
+    <label for="favorite">Favourite club</label>
+    <select id="favorite"><option value="">None</option></select>
+    <label for="focus">Player focus</label>
+    <select id="focus"><option value="">None</option></select>
+    <label for="language">Language</label>
+    <select id="language"><option value="en">English</option><option value="es">Español</option><option value="fr">Français</option><option value="ar">العربية</option></select>
+    <p class="muted">Translation arrives with the Localizer agent; the language is already carried on every message.</p>
+  </section>
+
+  <section class="panel">
+    <div class="scoreboard">
+      <div class="score" id="score">— v —</div>
+      <div class="clock" id="clock">00:00</div>
+      <div class="muted" id="status">No match</div>
+    </div>
+    <div class="meters">
+      <div class="meter">Momentum <b id="momentumLabel">—</b><div class="bar"><i id="momentumDot" style="left:50%"></i></div></div>
+      <div class="meter">Control vs chaos <b id="control">—</b></div>
+      <div class="meter">Tempo <b id="tempo">—</b></div>
+      <div class="meter">Possession <b id="possession">—</b></div>
+      <div class="meter">Shots (xG) <b id="shots">—</b></div>
+    </div>
+    <div class="player" id="player"></div>
+    <ul id="feed"></ul>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  let teams = [], matchId = null, info = null;
+
+  const connection = new signalR.HubConnectionBuilder()
+    .withUrl("/hubs/match")
+    .withAutomaticReconnect()
+    .build();
+
+  connection.on("insight", addInsight);
+  connection.on("state", renderState);
+  connection.on("status", s => $("status").textContent = `${s.status} · ${s.speed}x · ${s.viewers} watching`);
+
+  function profile() {
+    return {
+      mode: $("mode").value,
+      favoriteTeamId: $("favorite").value || null,
+      focusPlayerId: $("focus").value || null,
+      language: $("language").value
+    };
+  }
+
+  async function init() {
+    teams = await (await fetch("/api/teams")).json();
+    for (const t of teams) {
+      for (const sel of ["home", "away", "favorite"]) $(sel).add(new Option(`${t.name} (${t.id})`, t.id));
+    }
+    $("away").selectedIndex = 2;
+    const status = await (await fetch("/api/status")).json();
+    $("storage").textContent = `storage: ${status.storage}`;
+    await connection.start();
+  }
+
+  function fillPlayers() {
+    const focus = $("focus");
+    focus.length = 1;
+    if (!info) return;
+    for (const team of [info.home, info.away])
+      for (const p of team.squad) focus.add(new Option(`${team.shortName} · ${p.shirtNumber} ${p.name}`, p.id));
+  }
+
+  $("create").onclick = async () => {
+    const response = await fetch("/api/matches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ homeTeamId: $("home").value, awayTeamId: $("away").value, seed: +$("seed").value, speed: +$("speed").value })
+    });
+    if (!response.ok) { alert((await response.json()).error); return; }
+    const summary = await response.json();
+    matchId = summary.matchId;
+    $("feed").innerHTML = "";
+    const joined = await connection.invoke("JoinMatch", matchId, profile());
+    info = joined.info;
+    fillPlayers();
+    renderState(joined.state);
+    joined.recentInsights.forEach(addInsight);
+  };
+
+  $("pause").onclick = () => matchId && fetch(`/api/matches/${matchId}/pause`, { method: "POST" });
+  $("resume").onclick = () => matchId && fetch(`/api/matches/${matchId}/resume`, { method: "POST" });
+  $("speed").onchange = () => matchId && fetch(`/api/matches/${matchId}/speed`, {
+    method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ speed: +$("speed").value })
+  });
+  for (const id of ["mode", "favorite", "focus", "language"])
+    $(id).onchange = async () => { if (matchId) renderState(await connection.invoke("UpdateProfile", profile())); };
+
+  function addInsight(i) {
+    const li = document.createElement("li");
+    li.className = [i.kind, i.perspective === "Favorite" ? "favorite" : "", i.aboutFocusPlayer ? "focus" : ""].join(" ");
+    li.innerHTML = `<div><span class="t">${i.clock}</span><span class="h"></span></div><div class="b"></div>` + (i.analystNote ? `<div class="n"></div>` : "");
+    li.querySelector(".h").textContent = i.headline;
+    li.querySelector(".b").textContent = i.body;
+    if (i.analystNote) li.querySelector(".n").textContent = i.analystNote;
+    $("feed").prepend(li);
+  }
+
+  function renderState(s) {
+    if (!s) return;
+    $("score").textContent = `${s.home.name} ${s.homeScore} – ${s.awayScore} ${s.away.name}`;
+    $("clock").textContent = s.clock;
+    const g = s.game;
+    $("momentumDot").style.left = `${50 + g.momentum / 2}%`;
+    $("momentumLabel").textContent = g.momentumTeamId ? `${g.momentumTeamId} on top (${g.momentum > 0 ? "+" : ""}${g.momentum})` : "Even";
+    $("control").textContent = `${g.controlLabel || "—"} (${Math.round(g.controlIndex)})`;
+    $("tempo").textContent = g.tempo || "—";
+    $("possession").textContent = `${Math.round(s.home.possessionPct)}% – ${Math.round(s.away.possessionPct)}%`;
+    $("shots").textContent = `${s.home.shots} (${s.home.xg.toFixed(2)}) – ${s.away.shots} (${s.away.xg.toFixed(2)})`;
+    const p = s.focusPlayer;
+    $("player").textContent = p
+      ? `${p.name}: ${p.touches} touches · ${p.passesCompleted}/${p.passesAttempted} passes · ${p.shots} shots (${p.xg.toFixed(2)} xG) · ${(p.distanceM / 1000).toFixed(1)} km · top ${p.topSpeedKmh.toFixed(1)} km/h · rating ${p.rating.toFixed(1)}`
+      : "";
+  }
+
+  init().catch(err => { $("status").textContent = "Could not connect: " + err; });
+</script>
+</body>
+</html>

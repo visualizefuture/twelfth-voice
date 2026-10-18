@@ -19,6 +19,12 @@ public sealed class SimulationOptions
     public double TrackingIntervalSeconds { get; init; } = 60;
 
     public int LeagueSeed { get; init; } = SyntheticLeague.DefaultLeagueSeed;
+
+    /// <summary>
+    /// Optional id for the match. Defaults to "TV-{home}-{away}-{seed}". The API sets a unique id
+    /// per run so the same fixture can be replayed and stored more than once.
+    /// </summary>
+    public string? MatchId { get; init; }
 }
 
 public sealed record SimulatedMatch(MatchInfo Info, IReadOnlyList<MatchEvent> Events);
