@@ -1,4 +1,5 @@
-import { Component, HostListener, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, HostListener, computed, effect, inject, signal, untracked } from '@angular/core';
+import { LIFT_PER_METRE, ease, flightFor, flightPath, groundPath, pointAt } from '../ballflight';
 import { playerTokens } from '../formation';
 import { kitFor } from '../kits';
 import { LiveService } from '../live.service';
@@ -7,6 +8,7 @@ import { PITCH_LENGTH, PITCH_WIDTH, TOUCH_TYPES, actionLabel, ballPosition, toPe
 import { ReplayService, minute } from '../replay.service';
 import { crowdTile } from '../stadium';
 import { ClubBannerComponent } from './club-banner';
+import { CrestComponent } from './crest';
 import { PortraitComponent } from './portrait';
 
 type Layer = 'live' | 'heat' | 'shots';
@@ -30,7 +32,7 @@ const TRAIL_LENGTH = 6;
  */
 @Component({
   selector: 'tv-pitch-view',
-  imports: [PortraitComponent, ClubBannerComponent],
+  imports: [PortraitComponent, ClubBannerComponent, CrestComponent],
   template: `
     <div class="layers">
       <div class="tabs" role="tablist" aria-label="Pitch view">
@@ -66,6 +68,19 @@ const TRAIL_LENGTH = 6;
         }
       }
 
+      <!-- goal: confetti thrown up from the stands, in the scoring club's colours -->
+      @if (celebration(); as c) {
+        <div class="confetti" aria-hidden="true">
+          @for (bit of confetti; track $index) {
+            <i [style.left.%]="bit.x" [style.top.%]="bit.y" [style.--dx]="bit.dx + 'px'" [style.--up]="bit.up + 'px'" [style.--fall]="bit.fall + 'px'"
+               [style.animation-delay.s]="bit.delay" [style.animation-duration.s]="bit.duration">
+              <b [class]="'bit ' + bit.shape" [style.background]="bit.tone === 0 ? c.a : bit.tone === 1 ? c.b : bit.tone === 2 ? '#ffffff' : '#f6c445'"
+                 [style.animation-duration.s]="bit.flutter" [style.--spin]="bit.spin + 'deg'"></b>
+            </i>
+          }
+        </div>
+      }
+
       <div class="camera-rig">
         <div class="pitch">
           @if (stadium()) {
@@ -73,8 +88,14 @@ const TRAIL_LENGTH = 6;
             <div class="boards far" aria-hidden="true">
               @for (b of boards; track $index) { <span>{{ b }}</span> }
             </div>
-            <div class="goal-frame left" aria-hidden="true"></div>
-            <div class="goal-frame right" aria-hidden="true"></div>
+          }
+          <!-- goals: posts, crossbar and net; stood up in 3D in the stadium, seen from above on the tactical board -->
+          @for (side of goalSides; track side) {
+            <div [class]="'goalmouth ' + side" aria-hidden="true">
+              <i class="net-side near"></i>
+              <i class="net-side far"></i>
+              <i class="net-top"><i class="net-back"></i></i>
+            </div>
           }
           <svg [attr.viewBox]="viewBox" preserveAspectRatio="none" aria-hidden="true">
             <defs>
@@ -138,18 +159,21 @@ const TRAIL_LENGTH = 6;
                   <polyline [attr.points]="trailPoints()" class="trail" />
                 }
                 <!-- the current action -->
-                @if (actionLine(); as line) {
-                  <line [attr.x1]="line.from.x" [attr.y1]="line.from.y" [attr.x2]="line.to.x" [attr.y2]="line.to.y"
-                        [class]="'action ' + line.kind" marker-end="url(#arrow)" />
+                @if (flightLines(); as f) {
+                  @if (f.lofted) {
+                    <path [attr.d]="f.ground" class="ground-track" />
+                  }
+                  <path [attr.d]="f.air" [class]="'action ' + f.kind" marker-end="url(#arrow)" />
                 }
                 <!-- a pass the insight engine flagged as special -->
                 @if (!replay.active() && highlightPass(); as pass) {
                   <line [attr.x1]="pass.from.x" [attr.y1]="pass.from.y" [attr.x2]="pass.to.x" [attr.y2]="pass.to.y"
                         class="highlight" marker-end="url(#arrow)" />
                 }
-                @if (ball(); as b) {
-                  <g class="ball" [style.transform]="'translate(' + b.x + 'px,' + b.y + 'px)'">
-                    <ellipse rx="1.1" ry="0.55" cy="0.5" class="ball-shadow" />
+                @if (ballState(); as b) {
+                  <ellipse [attr.cx]="b.gx" [attr.cy]="b.gy + 0.4" [attr.rx]="1.1 * b.shadow" [attr.ry]="0.55 * b.shadow"
+                           class="ball-shadow" [attr.fill-opacity]="0.45 * b.shadow" />
+                  <g [attr.transform]="'translate(' + b.x + ' ' + b.y + ') scale(' + b.scale + ')'">
                     <circle r="1.6" class="ball-glow" />
                     <circle r="0.85" class="ball-core" />
                   </g>
@@ -214,38 +238,8 @@ const TRAIL_LENGTH = 6;
           </div>
           <div class="replay-progress"><i [style.width.%]="(r.index + 1) / r.frames.length * 100"></i></div>
         } @else {
-          @for (o of live.overlays(); track o.id) {
-            @switch (o.placement) {
-              @case ('full-width') {
-                <div class="gfx banner" [class.goal]="o.insight.kind === 'Goal'">
-                  @if (o.insight.kind === 'Goal' && scoringTeam(o.insight); as team) {
-                    <tv-club-banner class="flag-left" [team]="team" size="big" />
-                    <tv-club-banner class="flag-right" [team]="team" side="away" size="big" />
-                  }
-                  <strong class="display">{{ o.insight.headline }}</strong>
-                  <p>{{ o.insight.body }}</p>
-                </div>
-              }
-              @case ('centre') {
-                <div class="gfx summary">
-                  <strong class="display">{{ o.insight.headline }}</strong>
-                  <p>{{ o.insight.body }}</p>
-                </div>
-              }
-              @case ('top-bar') {
-                <div class="gfx chip top">{{ o.insight.headline }}</div>
-              }
-              @case ('top-right') {
-                <div class="gfx chip top right">{{ o.insight.headline }}</div>
-              }
-              @case ('near-player') {}
-              @default {
-                <div class="gfx lower" [class.mine]="o.insight.perspective === 'Favorite'">
-                  <strong>{{ o.insight.headline }}</strong>
-                  <p>{{ o.insight.body }}</p>
-                </div>
-              }
-            }
+          @for (o of chips(); track o.id) {
+            <div class="gfx chip top" [class.right]="o.placement === 'top-right'">{{ o.insight.headline }}</div>
           }
         }
 
@@ -263,6 +257,29 @@ const TRAIL_LENGTH = 6;
         }
       </div>
     </div>
+
+    <!-- broadcast graphics sit in a rail under the pitch, so they never cover the play -->
+    <div class="rail" aria-live="polite">
+      @if (!replay.active()) {
+        @for (o of railGraphics(); track o.id) {
+          <div class="card" [class.goal]="o.insight.kind === 'Goal'" [class.mine]="o.insight.perspective === 'Favorite'"
+               [class.big]="o.placement === 'full-width' || o.placement === 'centre'">
+            @if (o.insight.kind === 'Goal' && scoringTeam(o.insight); as team) {
+              <tv-club-banner [team]="team" />
+            }
+            <div class="card-text">
+              <strong [class.display]="o.placement === 'full-width' || o.placement === 'centre'">{{ o.insight.headline }}</strong>
+              <p>{{ o.insight.body }}</p>
+            </div>
+            @if (o.insight.kind === 'Goal' && scoringTeam(o.insight); as team) {
+              <tv-club-banner [team]="team" side="away" />
+            }
+          </div>
+        } @empty {
+          <div class="card idle muted">{{ idleLine() }}</div>
+        }
+      }
+    </div>
   `,
   styles: `
     :host { display: block; }
@@ -275,7 +292,9 @@ const TRAIL_LENGTH = 6;
     .direction { margin-left: auto; font-size: var(--step--1); }
 
     /* ---------- stage: flat (tactical) by default ---------- */
-    .stage { position: relative; width: 100%; aspect-ratio: 105 / 68; border-radius: 4px; overflow: hidden; --tilt: 0deg; }
+    .stage:not(.stadium) .camera-rig { inset: 0 1.8%; }
+    .stage:not(.stadium) { background: var(--night-2); }
+    .stage { position: relative; width: 100%; aspect-ratio: 109 / 68; border-radius: 4px; overflow: hidden; --tilt: 0deg; }
     .camera-rig { position: absolute; inset: 0; }
     .pitch { position: absolute; inset: 0; }
     .hud { position: absolute; inset: 0; pointer-events: none; z-index: 6; }
@@ -294,12 +313,32 @@ const TRAIL_LENGTH = 6;
     .shot.goal { fill: var(--floodlight); stroke: var(--floodlight); }
     .shot.saved.home { fill: var(--home); fill-opacity: 0.35; }
     .shot.saved.away { fill: var(--away); fill-opacity: 0.35; }
+    .ground-track { fill: none; stroke: #000; stroke-opacity: 0.28; stroke-width: 0.35; stroke-dasharray: 0.6 0.9; }
+    .ball-shadow { fill: #000; }
+
+    /* ---------- goals (tactical: from above, outside the goal line) ---------- */
+    .goalmouth {
+      position: absolute; top: calc(50% - 5.38%); height: 10.76%; width: 1.9%; z-index: 1;
+      border: 2px solid #f4f6f8; box-shadow: 0 0 4px rgb(0 0 0 / 0.5);
+      background:
+        repeating-linear-gradient(0deg, rgb(255 255 255 / 0.35) 0 1px, transparent 1px 5px),
+        repeating-linear-gradient(90deg, rgb(255 255 255 / 0.35) 0 1px, transparent 1px 5px),
+        rgb(0 0 0 / 0.25);
+    }
+    .goalmouth.left { left: -1.9%; border-right: 0; }
+    .goalmouth.right { right: -1.9%; border-left: 0; }
+    .goalmouth::before, .goalmouth::after {
+      content: ''; position: absolute; width: 5px; height: 5px; border-radius: 50%; background: #fff; box-shadow: 0 0 3px #000;
+    }
+    .goalmouth.left::before { right: -3px; top: -4px; } .goalmouth.left::after { right: -3px; bottom: -4px; }
+    .goalmouth.right::before { left: -3px; top: -4px; } .goalmouth.right::after { left: -3px; bottom: -4px; }
+    .goalmouth > i { display: none; }
+
     .trail { fill: none; stroke: var(--chalk); stroke-opacity: 0.25; stroke-width: 0.35; stroke-dasharray: 0.8 0.8; }
-    .action { stroke-width: 0.4; stroke: var(--chalk); stroke-opacity: 0.8; }
+    .action { fill: none; stroke-width: 0.4; stroke: var(--chalk); stroke-opacity: 0.8; }
     .action.fail { stroke: var(--red-card); stroke-dasharray: 1 0.8; }
     .action.shot { stroke: var(--floodlight); stroke-width: 0.5; }
     .highlight { stroke: var(--floodlight); stroke-width: 0.6; }
-    .ball { transition: transform 0.45s ease-out; }
     .ball-shadow { fill: #000; fill-opacity: 0; }
     .ball-glow { fill: var(--floodlight); fill-opacity: 0.25; }
     .ball-core { fill: #ffffff; }
@@ -331,8 +370,41 @@ const TRAIL_LENGTH = 6;
       border: 1px solid; font: 700 10px/11px var(--display); text-align: center; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
     }
     .replaying .token { transition-duration: 0.8s; transition-timing-function: ease-in-out; }
-    .replaying .ball { transition-duration: 0.8s; transition-timing-function: ease-in-out; }
     .replaying .tag { transition-duration: 0.8s; }
+
+    .rail { display: grid; gap: 8px; margin-top: 10px; min-height: 78px; align-content: start; }
+    .card {
+      display: flex; align-items: center; gap: 16px; padding: 10px 16px; background: var(--night-2);
+      border-left: 4px solid var(--chalk); animation: gfx-in 0.35s ease-out;
+    }
+    .card-text { flex: 1; min-width: 0; }
+    .card strong { display: block; font-size: var(--step-0); }
+    .card strong.display { font-size: var(--step-1); }
+    .card p { margin: 3px 0 0; font-size: var(--step--1); color: var(--moss); }
+    .card.mine { border-left-color: var(--floodlight); }
+    .card.goal { border-left: 0; border-top: 3px solid var(--floodlight); background: #1d1600; text-align: center; padding: 12px 18px; }
+    .card.goal strong { color: var(--floodlight); font-size: var(--step-2); }
+    .card.idle { border-left-color: var(--hairline); font-size: var(--step--1); }
+
+    .confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 5; }
+    /* the outer piece is thrown up and drifts down; the inner one flutters */
+    .confetti > i {
+      position: absolute; width: 0; height: 0; animation-name: toss; animation-timing-function: linear; animation-fill-mode: both;
+    }
+    .confetti .bit { position: absolute; display: block; animation: flutter ease-in-out infinite alternate; opacity: 0.95; }
+    .confetti .strip { width: 4px; height: 11px; border-radius: 1px; }
+    .confetti .square { width: 7px; height: 7px; }
+    .confetti .dot { width: 6px; height: 6px; border-radius: 50%; }
+    @keyframes toss {
+      0% { transform: translate(0, 0); opacity: 0; animation-timing-function: cubic-bezier(.2,.7,.4,1); }
+      6% { opacity: 1; }
+      28% { transform: translate(calc(var(--dx) * 0.35), calc(var(--up) * -1)); animation-timing-function: cubic-bezier(.4,0,.8,.6); }
+      100% { transform: translate(var(--dx), var(--fall)); opacity: 0.85; }
+    }
+    @keyframes flutter {
+      0% { transform: rotate(0deg) rotateX(0deg) translateX(-3px); }
+      100% { transform: rotate(var(--spin)) rotateX(320deg) translateX(3px); }
+    }
 
     .layer-note { position: absolute; left: 12px; bottom: 10px; font-size: var(--step--1); background: var(--night-2); padding: 4px 10px; }
 
@@ -432,15 +504,32 @@ const TRAIL_LENGTH = 6;
       color: #cfe6ff; border-left: 1px solid #23364d;
     }
     .stadium .boards span:nth-child(odd) { color: var(--floodlight); }
-    .stadium .goal-frame {
-      position: absolute; top: calc(50% - 5.4%); height: 10.8%; width: 2.6%;
-      border: 2px solid #f4f6f8; box-shadow: 0 0 6px rgb(0 0 0 / 0.5);
-      background: repeating-linear-gradient(45deg, rgb(255 255 255 / 0.25) 0 2px, transparent 2px 6px);
-    }
-    .stadium .goal-frame.left { left: -2.6%; border-right: 0; }
-    .stadium .goal-frame.right { right: -2.6%; border-left: 0; }
     .stadium .lines { stroke-opacity: 0.85; stroke-width: 0.35; }
-    .stadium .ball-shadow { fill-opacity: 0.45; }
+    /* goals stand up in 3D: the face (posts and crossbar) rises from the goal line, nets fold back from it */
+    .stadium .goalmouth {
+      top: calc(50% - 5.38%); height: 10.76%; width: 3.8%; border: 0; box-shadow: none; background: none;
+      transform-style: preserve-3d; z-index: 3;
+    }
+    .stadium .goalmouth::before, .stadium .goalmouth::after { display: none; }
+    .stadium .goalmouth.left { left: 0; transform-origin: 0 50%; transform: rotateY(-90deg); }
+    .stadium .goalmouth.right { right: 0; left: auto; transform-origin: 100% 50%; transform: rotateY(90deg); }
+    /* posts = the face's long edges, crossbar = its far edge */
+    .stadium .goalmouth.left { border-top: 3px solid #fff; border-bottom: 3px solid #fff; border-right: 3px solid #fff; }
+    .stadium .goalmouth.right { border-top: 3px solid #fff; border-bottom: 3px solid #fff; border-left: 3px solid #fff; }
+    .stadium .goalmouth > i, .stadium .net-top > i { display: block; position: absolute; transform-style: preserve-3d; }
+    .stadium .net-side, .stadium .net-top, .stadium .net-back {
+      background:
+        repeating-linear-gradient(0deg, rgb(255 255 255 / 0.55) 0 1px, transparent 1px 4px),
+        repeating-linear-gradient(90deg, rgb(255 255 255 / 0.55) 0 1px, transparent 1px 4px);
+      outline: 1px solid rgb(255 255 255 / 0.5);
+    }
+    .stadium .net-side { left: 0; width: 100%; height: 26%; transform-origin: 50% 0; transform: rotateX(90deg); }
+    .stadium .net-side.near { top: 100%; }
+    .stadium .net-side.far { top: 0; }
+    .stadium .goalmouth.left .net-top { left: 100%; top: 0; height: 100%; width: 50%; transform-origin: 0 50%; transform: rotateY(-90deg); }
+    .stadium .goalmouth.right .net-top { right: 100%; top: 0; height: 100%; width: 50%; transform-origin: 100% 50%; transform: rotateY(90deg); }
+    .stadium .goalmouth.left .net-back { left: 100%; top: 0; height: 100%; width: 200%; transform-origin: 0 50%; transform: rotateY(-90deg); }
+    .stadium .goalmouth.right .net-back { right: 100%; top: 0; height: 100%; width: 200%; transform-origin: 100% 50%; transform: rotateY(90deg); }
     .stadium .token { transform-style: preserve-3d; }
     .stadium .token .figure {
       transform-origin: 50% 100%; top: -24px;
@@ -471,6 +560,7 @@ const TRAIL_LENGTH = 6;
     @media (prefers-reduced-motion: reduce) {
       .token, .ball, .tag, .replay-progress i { transition: none !important; }
       .replay-badge .dot { animation: none; }
+      .confetti { display: none; }
     }
   `
 })
@@ -496,6 +586,116 @@ export class PitchViewComponent {
       away: crowdTile(home, away, 0.08, seed + 2)
     };
   });
+
+  constructor() {
+    // Fly the ball along each new action's path.
+    effect(() => {
+      const action = this.action();
+      const home = this.homeId();
+      const slow = !!this.replay.active();
+      untracked(() => this.fly(action, home, slow));
+    });
+    inject(DestroyRef).onDestroy(() => cancelAnimationFrame(this.frame));
+  }
+
+  private fly(action: MatchEvent | null, homeId: string, slow: boolean): void {
+    cancelAnimationFrame(this.frame);
+    const end = action ? ballPosition(action, homeId) : null;
+    if (!end) {
+      this.ballState.set(null);
+      return;
+    }
+    const at = (x: number, y: number, height: number) => ({
+      x, y: y - height * LIFT_PER_METRE, gx: x, gy: y, scale: 1 + height / 5, shadow: 1 / (1 + height / 4)
+    });
+    const flight = flightFor(action, homeId);
+    const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!flight || reduced) {
+      this.ballState.set(at(end.x, end.y, 0));
+      return;
+    }
+    const duration = flight.ms * (slow ? 1.5 : 1);
+    const started = performance.now();
+    const step = (now: number) => {
+      const t = Math.min(1, (now - started) / duration);
+      const { ground, height } = pointAt(flight, ease(t));
+      this.ballState.set(at(ground.x, ground.y, height));
+      if (t < 1) this.frame = requestAnimationFrame(step);
+    };
+    this.frame = requestAnimationFrame(step);
+  }
+
+  /** Short headline chips stay on the pitch's top edge; everything with a body goes in the rail below. */
+  readonly chips = computed(() => this.live.overlays().filter(o => o.placement === 'top-bar' || o.placement === 'top-right'));
+
+  /** Rail graphics, most important first, at most two so the layout stays steady. */
+  readonly railGraphics = computed(() => this.live.overlays()
+    .filter(o => !['top-bar', 'top-right', 'near-player', 'pitch-overlay'].includes(o.placement))
+    .sort((a, b) => b.insight.overlay.priority - a.insight.overlay.priority)
+    .slice(0, 2));
+
+  readonly idleLine = computed(() => {
+    const summary = this.live.summary();
+    if (!summary) return '';
+    if (summary.status === 'Finished') return 'Full time. Replay any goal above, or read the story.';
+    if (summary.status === 'Paused') return 'Paused.';
+    return 'Live. Big moments appear here as they happen.';
+  });
+
+  /** A goal is on screen: the scoring club's fans celebrate in the stands. */
+  readonly celebration = computed(() => {
+    if (this.replay.active()) return null;
+    const goal = this.live.overlays().find(o => o.insight.kind === 'Goal');
+    const team = goal ? this.scoringTeam(goal.insight) : null;
+    if (!goal || !team) return null;
+    const kit = team.matchKit;
+    return {
+      team,
+      a: kit?.shirt ?? team.primaryColor,
+      b: kit?.trim ?? team.secondaryColor,
+    };
+  });
+
+  readonly goalSides = ['left', 'right'];
+
+  /**
+   * Confetti thrown up from the stands: each piece starts in a stand, flies up, then drifts down
+   * across the stadium while fluttering. Fixed per session so it doesn't reshuffle on every render.
+   */
+  readonly confetti = Array.from({ length: 140 }, (_, i) => {
+    const r = (n: number) => ((Math.sin((i + 1) * 12.9898 + n * 78.233) * 43758.5453) % 1 + 1) % 1;
+    const stand = i % 4; // 0 far stand, 1 left, 2 right, 3 far stand again
+    const x = stand === 1 ? 2 + r(1) * 20 : stand === 2 ? 78 + r(1) * 20 : 6 + r(1) * 88;
+    const y = stand === 1 || stand === 2 ? 30 + r(2) * 60 : 10 + r(2) * 20;
+    const shapes = ['strip', 'strip', 'square', 'dot'];
+    return {
+      x, y,
+      dx: (stand === 1 ? 1 : stand === 2 ? -1 : r(3) < 0.5 ? -1 : 1) * (30 + r(4) * 160),
+      up: 60 + r(5) * 170,
+      fall: 260 + r(6) * 520,
+      delay: (i % 2) * 1.1 + r(7) * 1.4,
+      duration: 3.6 + r(8) * 2.6,
+      flutter: 0.35 + r(9) * 0.5,
+      spin: 180 + r(10) * 540,
+      tone: Math.floor(r(11) * 4),
+      shape: shapes[Math.floor(r(12) * shapes.length)]
+    };
+  });
+
+  /** The kick drawn as it travels: bent along the grass and, for long balls, up in the air. */
+  readonly flightLines = computed(() => {
+    const f = flightFor(this.action(), this.homeId());
+    if (!f || f.kind === 'carry') {
+      const e = this.action();
+      if (!f || !e?.start || !e.end) return null;
+      return { air: flightPath(f, 2), ground: '', lofted: false, kind: f.kind === 'carry' ? 'ok' : f.kind };
+    }
+    return { air: flightPath(f), ground: groundPath(f), lofted: f.height > 1, kind: f.kind };
+  });
+
+  /** The ball as drawn this frame: its shadow on the grass, and the ball lifted and scaled by its height. */
+  readonly ballState = signal<{ x: number; y: number; gx: number; gy: number; scale: number; shadow: number } | null>(null);
+  private frame = 0;
 
   /** What the pitch shows: the replay frame when a replay is rolling, otherwise the live action. */
   private readonly action = computed(() => this.replay.frame() ?? this.live.lastAction());
@@ -577,13 +777,6 @@ export class PitchViewComponent {
     return e ? ballPosition(e, this.homeId()) : null;
   });
 
-  readonly actionLine = computed(() => {
-    const e = this.action();
-    if (!e?.start || !e.end || !['Pass', 'Carry', 'Shot', 'Dribble'].includes(e.type)) return null;
-    const home = this.homeId();
-    const kind = e.type === 'Shot' ? 'shot' : e.outcome === 'Fail' ? 'fail' : 'ok';
-    return { from: toScreen(e.start, e.teamId, home), to: toScreen(e.end, e.teamId, home), kind };
-  });
 
   /** If a "pass of note" graphic is showing, draw that pass. */
   readonly highlightPass = computed(() => {
@@ -729,3 +922,4 @@ function loadCamera(): Camera {
     return 'stadium';
   }
 }
+

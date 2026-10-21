@@ -30,9 +30,12 @@ await shot('02b-pitch-stadium', page.locator('tv-pitch-view .stage'));
 
 // Wait for a goal (up to 90 s real time), capture the banner, then the automatic replay.
 try {
-  await page.waitForSelector('.banner.goal', { timeout: 90_000 });
-  await page.waitForTimeout(700);
+  await page.waitForSelector('.card.goal', { timeout: 90_000 });
+  await page.waitForTimeout(1200);
   await shot('03-goal');
+  await shot('03b-goal-pitch', page.locator('tv-pitch-view'));
+  await page.waitForTimeout(1500);
+  await shot('03c-confetti', page.locator('tv-pitch-view .stage'));
   await page.waitForSelector('.replay-badge', { timeout: 15_000 });
   await page.waitForTimeout(2500);
   await shot('04-replay');
@@ -42,6 +45,13 @@ try {
   await page.waitForSelector('.replay-badge', { state: 'detached', timeout: 30_000 });
 } catch (err) {
   console.log('no goal captured:', err.message);
+}
+
+const stage = page.locator('tv-pitch-view .stage');
+const box = await stage.boundingBox();
+if (box) {
+  await page.screenshot({ path: `${out}/08-goal-closeup.png`, clip: { x: box.x, y: box.y + box.height * 0.35, width: box.width * 0.35, height: box.height * 0.5 } });
+  console.log('saved 08-goal-closeup');
 }
 
 await page.click('.camera button:has-text("Tactical")');

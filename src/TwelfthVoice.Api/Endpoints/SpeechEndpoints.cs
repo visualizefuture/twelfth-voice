@@ -29,7 +29,10 @@ public static class SpeechEndpoints
                 int away = (int)goal.Evidence.GetValueOrDefault("away_score");
 
                 string ssml = SpeechService.GoalCallSsml(language, scorer, info.Home.ShortName, home, info.Away.ShortName, away);
-                return Audio(await voice.SynthesizeAsync(ssml, ct));
+                var audio = await voice.SynthesizeAsync(ssml, ct)
+                    // If the voice rejects the held word, a plainer call still goes out in the same voice.
+                    ?? await voice.SynthesizeAsync(SpeechService.GoalCallSsml(language, scorer, info.Home.ShortName, home, info.Away.ShortName, away, simple: true), ct);
+                return Audio(audio);
             })
             .WithName("GetGoalCall")
             .WithSummary("The goal call for a goal in this match, as MP3, in the viewer's language.");

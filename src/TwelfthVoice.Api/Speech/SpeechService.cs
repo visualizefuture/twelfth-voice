@@ -84,13 +84,14 @@ public sealed class SpeechService
     /// The goal call: one long held goal word, climbing in pitch, a quick second one, then the scorer
     /// and the score. Lasts about five seconds.
     /// </summary>
-    public static string GoalCallSsml(string? language, string scorer, string homeTeam, int homeScore, string awayTeam, int awayScore)
+    /// <param name="simple">A plainer version (no held word) used if the voice rejects the full one.</param>
+    public static string GoalCallSsml(string? language, string scorer, string homeTeam, int homeScore, string awayTeam, int awayScore, bool simple = false)
     {
         var voice = VoiceFor(language);
         string goal = Escape(voice.GoalWord);
-        string held = Escape(voice.LongGoal);
+        string held = Escape(simple ? voice.GoalWord : voice.LongGoal);
         return Wrap(voice, $"""
-            <prosody rate="x-slow" pitch="+30%" volume="x-loud"><prosody contour="(0%,+0%) (40%,+20%) (100%,+35%)">{held}!</prosody></prosody>
+            <prosody rate="x-slow" pitch="+30%" volume="x-loud">{held}!</prosody>
             <break time="150ms"/>
             <prosody rate="-20%" pitch="+25%" volume="x-loud">{goal}!</prosody>
             <break time="250ms"/>
