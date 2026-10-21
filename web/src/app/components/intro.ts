@@ -43,7 +43,7 @@ const FADE_MS = 500;
       position: fixed; inset: 0; z-index: 100; overflow: hidden; cursor: pointer;
       background: radial-gradient(120% 90% at 50% 110%, #164233 0%, #0b2219 45%, #050d0a 100%);
       display: grid; place-items: center; animation: fade-in 0.4s ease-out;
-      transition: opacity ${FADE_MS}ms ease-in;
+      transition: opacity 500ms ease-in;
     }
     .intro.leaving { opacity: 0; }
     .pitch {
