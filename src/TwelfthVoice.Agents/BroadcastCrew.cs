@@ -48,6 +48,29 @@ public sealed record CrewLine
     };
 }
 
+/// <summary>One draft the Commentator wrote, and what the Fact-checker made of it.</summary>
+public sealed record CrewDraft(int Attempt, string Headline, string Body, bool Approved, string CheckedBy, IReadOnlyList<string> Reasons);
+
+/// <summary>What the crew did with one moment for one audience: the crew room's record.</summary>
+public sealed record CrewActivity
+{
+    public required string MatchId { get; init; }
+    public required string InsightId { get; init; }
+    public required string Kind { get; init; }
+    public required string Minute { get; init; }
+    public required string Audience { get; init; }
+    /// <summary>The rule-written line the crew started from.</summary>
+    public required string DataHeadline { get; init; }
+    public IReadOnlyList<CrewDraft> Drafts { get; init; } = Array.Empty<CrewDraft>();
+    /// <summary>"crew" (the crew's line aired), "data" (drafts held back; the data-written line stayed), or "translated".</summary>
+    public required string Outcome { get; init; }
+    public required string FinalHeadline { get; init; }
+    public required string FinalBody { get; init; }
+    public required string Language { get; init; }
+    public string? Translation { get; init; }
+    public DateTimeOffset At { get; init; } = DateTimeOffset.UtcNow;
+}
+
 public sealed record CrewStats(long Voiced, long Approved, long DraftsRejected, long Retries, long FellBackToRules, long Translated, long TranslationsRejected);
 
 /// <summary>
@@ -70,6 +93,8 @@ public sealed class BroadcastCrew
     private readonly ILogger<BroadcastCrew> _logger;
     private readonly ConcurrentDictionary<string, Lazy<Task<CrewLine?>>> _cache = new();
     private readonly ConcurrentDictionary<string, CrewLine> _finished = new();
+    private readonly ConcurrentDictionary<string, ConcurrentQueue<CrewActivity>> _activity = new();
+    private const int ActivityPerMatch = 80;
 
     private long _voiced, _approved, _rejected, _retries, _fallbacks, _translated, _translationsRejected;
 
@@ -95,6 +120,12 @@ public sealed class BroadcastCrew
 
     public bool WantsVoice(Insight insight) =>
         AlwaysVoiced.Contains(insight.Kind) || insight.Importance >= _options.MinImportance;
+
+    /// <summary>The crew room: what the crew did most recently in a match, newest first.</summary>
+    public IReadOnlyList<CrewActivity> RecentActivity(string matchId, int take = 40) =>
+        _activity.TryGetValue(matchId, out var queue)
+            ? queue.Reverse().Take(Math.Clamp(take, 1, ActivityPerMatch)).ToList()
+            : Array.Empty<CrewActivity>();
 
     /// <summary>A finished line, if the crew has already produced one for this audience.</summary>
     public CrewLine? TryGetCached(string insightId, CommentaryVariant variant) =>
@@ -127,11 +158,22 @@ public sealed class BroadcastCrew
     {
         try
         {
-            var line = WantsVoice(insight)
-                ? await VoiceAsync(insight, context, variant, cancellationToken)
+            var drafts = new List<CrewDraft>();
+            bool voiced = WantsVoice(insight);
+            var line = voiced
+                ? await VoiceAsync(insight, context, variant, drafts, cancellationToken)
                 : RuleLine(insight, variant, Array.Empty<string>());
 
-            if (!variant.IsEnglish) line = await TranslateAsync(line, variant.Language, cancellationToken);
+            string? translation = null;
+            if (!variant.IsEnglish)
+            {
+                line = await TranslateAsync(line, variant.Language, cancellationToken);
+                translation = line.Language == variant.Language
+                    ? $"Translated to {CrewPrompts.LanguageName(variant.Language)}; numbers re-checked"
+                    : $"Translation to {CrewPrompts.LanguageName(variant.Language)} held back: a number changed";
+            }
+
+            Record(insight, variant, drafts, line, translation);
 
             if (line.Source == "rules" && variant.IsEnglish) return null; // nothing better than what viewers already have
             _finished[key] = line;
@@ -147,7 +189,7 @@ public sealed class BroadcastCrew
 
     // ------------------------------------------------------------------ commentator + fact-checker
 
-    private async Task<CrewLine> VoiceAsync(Insight insight, MomentContext context, CommentaryVariant variant, CancellationToken cancellationToken)
+    private async Task<CrewLine> VoiceAsync(Insight insight, MomentContext context, CommentaryVariant variant, List<CrewDraft> drafts, CancellationToken cancellationToken)
     {
         Interlocked.Increment(ref _voiced);
         var facts = MomentFacts.Build(insight, context, variant);
@@ -169,6 +211,7 @@ public sealed class BroadcastCrew
             {
                 Interlocked.Increment(ref _rejected);
                 feedback = numbers.Issues;
+                drafts.Add(new CrewDraft(attempt, draft.Value.Headline, draft.Value.Body, false, "Number check", numbers.Issues));
                 continue;
             }
             checks.Add("Every number traced to match data");
@@ -181,6 +224,7 @@ public sealed class BroadcastCrew
                 {
                     Interlocked.Increment(ref _rejected);
                     feedback = verdict.Issues;
+                    drafts.Add(new CrewDraft(attempt, draft.Value.Headline, draft.Value.Body, false, "AI fact-checker", verdict.Issues));
                     continue;
                 }
                 if (verdict is { Passed: true }) checks.Add("Approved by the AI fact-checker");
@@ -188,6 +232,9 @@ public sealed class BroadcastCrew
 
             if (attempt == 2) checks.Add("Rewritten after the fact-checker's notes");
             Interlocked.Increment(ref _approved);
+            drafts.Add(new CrewDraft(attempt, draft.Value.Headline, draft.Value.Body, true,
+                checks.Contains("Approved by the AI fact-checker") ? "Number check and AI fact-checker" : "Number check",
+                Array.Empty<string>()));
             return new CrewLine
             {
                 InsightId = insight.Id,
@@ -235,6 +282,43 @@ public sealed class BroadcastCrew
             Language = language,
             Checks = line.Checks.Append($"Translated to {CrewPrompts.LanguageName(language)}, numbers re-checked").ToList()
         };
+    }
+
+    private void Record(Insight insight, CommentaryVariant variant, List<CrewDraft> drafts, CrewLine line, string? translation)
+    {
+        string? outcome = line.Source == "ai" ? "crew" : drafts.Count > 0 ? "data" : translation is not null ? "translated" : null;
+        if (outcome is null) return; // the model didn't answer; nothing happened worth showing
+        var activity = new CrewActivity
+        {
+            MatchId = insight.MatchId,
+            InsightId = insight.Id,
+            Kind = insight.Kind.ToString(),
+            Minute = MatchClock.MinuteLabel(insight.Period, insight.MatchSecond),
+            Audience = Audience(variant),
+            DataHeadline = insight.Headline,
+            Drafts = drafts.ToList(),
+            Outcome = outcome,
+            FinalHeadline = line.Headline,
+            FinalBody = line.Body,
+            Language = line.Language,
+            Translation = translation
+        };
+
+        var queue = _activity.GetOrAdd(insight.MatchId, _ => new ConcurrentQueue<CrewActivity>());
+        queue.Enqueue(activity);
+        while (queue.Count > ActivityPerMatch && queue.TryDequeue(out _)) { }
+    }
+
+    private static string Audience(CommentaryVariant variant)
+    {
+        string mode = variant.Mode == ViewerMode.Analyst ? "Analyst" : "Fan";
+        string side = variant.Perspective switch
+        {
+            Perspective.Favorite => "supporting this side",
+            Perspective.Opponent => "supporting the other side",
+            _ => "neutral"
+        };
+        return $"{mode}, {CrewPrompts.LanguageName(variant.Language)}, {side}";
     }
 
     private static CrewLine RuleLine(Insight insight, CommentaryVariant variant, IReadOnlyList<string> checks) => new()

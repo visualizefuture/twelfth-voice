@@ -75,6 +75,7 @@ public static class CrewPrompts
 
     public static string LanguageName(string code) => code.ToLowerInvariant() switch
     {
+        "en" => "English",
         "es" => "Spanish",
         "fr" => "French",
         "pt" => "Portuguese",

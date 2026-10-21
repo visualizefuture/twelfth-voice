@@ -284,3 +284,63 @@ public class MatchToolsTests
         Assert.Equal(6, tools.AsTools().Count);
     }
 }
+
+public class CrewRoomTests
+{
+    private sealed class Script : ICrewModel
+    {
+        private readonly Queue<string?> _commentator;
+        private readonly Queue<string?> _checker;
+        public Script(IEnumerable<string?> commentator, IEnumerable<string?> checker)
+        {
+            _commentator = new Queue<string?>(commentator);
+            _checker = new Queue<string?>(checker);
+        }
+        public bool IsAvailable => true;
+        public CrewUsage Usage => new(true, "test", 0, 0, 0, 0, 100);
+        public Task<string?> RunAsync(CrewRole role, string prompt, CancellationToken cancellationToken) =>
+            Task.FromResult(role switch
+            {
+                CrewRole.Commentator => _commentator.Count > 0 ? _commentator.Dequeue() : null,
+                CrewRole.FactChecker => _checker.Count > 0 ? _checker.Dequeue() : null,
+                _ => null
+            });
+        public Task<string?> RunWithToolsAsync(string name, string instructions, string prompt, IList<Microsoft.Extensions.AI.AITool> tools, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>(null);
+    }
+
+    [Fact]
+    public async Task Crew_room_shows_the_rejected_draft_the_reason_and_the_rewrite()
+    {
+        // The first seed whose match has a goal.
+        var (match, goal) = Enumerable.Range(1, 50)
+            .Select(seed =>
+            {
+                var m = MatchSimulator.Run(new SimulationOptions { Seed = seed, HomeTeamId = "HAR", AwayTeamId = "IRV" });
+                var a = new MatchAnalyzer(m.Info);
+                a.ProcessAll(m.Events);
+                return (m, a.Insights.FirstOrDefault(i => i.Kind == InsightKind.Goal));
+            })
+            .First(x => x.Item2 is not null);
+
+        var crew = new BroadcastCrew(
+            new Script(
+                new[] { """{"headline":"A 99th-minute stunner","body":"Unreal."}""", """{"headline":"Goal!","body":"What a finish."}""" },
+                new[] { """{"verdict":"pass"}""" }),
+            new AgentOptions { Endpoint = "https://x/openai/v1/" },
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<BroadcastCrew>.Instance);
+
+        await crew.PrepareAsync(goal!, new MomentContext(match.Info, 1, 0), new CommentaryVariant(ViewerMode.Casual, "en", Perspective.Neutral));
+
+        var room = crew.RecentActivity(match.Info.MatchId);
+        var entry = Assert.Single(room);
+        Assert.Equal("crew", entry.Outcome);
+        Assert.Equal(2, entry.Drafts.Count);
+        Assert.False(entry.Drafts[0].Approved);
+        Assert.Equal("Number check", entry.Drafts[0].CheckedBy);
+        Assert.Contains(entry.Drafts[0].Reasons, r => r.Contains("99"));
+        Assert.True(entry.Drafts[1].Approved);
+        Assert.Equal("Goal!", entry.FinalHeadline);
+        Assert.Equal("Fan, English, neutral", entry.Audience);
+    }
+}
