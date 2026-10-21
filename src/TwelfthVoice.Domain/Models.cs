@@ -24,6 +24,8 @@ public sealed record Player
     public required Position Position { get; init; }
     public required string Nationality { get; init; }
     public PlayerAttributes Attributes { get; init; } = new();
+    public bool IsCaptain { get; init; }
+    public PlayerLook Look { get; init; } = new();
 }
 
 /// <summary>How a team likes to play. All values 0..1 except Strength (0..100).</summary>
@@ -52,6 +54,18 @@ public sealed record Team
     public required TeamStyle Style { get; init; }
     /// <summary>The first eleven players are the starting XI; the rest are substitutes.</summary>
     public required IReadOnlyList<Player> Squad { get; init; }
+
+    public string Nickname { get; init; } = "";
+    public Kit? HomeKit { get; init; }
+    public Kit? AwayKit { get; init; }
+    public Kit? GoalkeeperKit { get; init; }
+    public Crest? Crest { get; init; }
+
+    /// <summary>The kit worn in this match (home kit, or away kit when the colours clash).</summary>
+    public Kit? MatchKit { get; init; }
+
+    /// <summary>Starting XI positions in the formation, attacking frame.</summary>
+    public IReadOnlyList<LineupSlot> Lineup { get; init; } = Array.Empty<LineupSlot>();
 }
 
 public sealed record MatchInfo
