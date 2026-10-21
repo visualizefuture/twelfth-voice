@@ -141,7 +141,7 @@ const TRAIL_LENGTH = 6;
                 <g filter="url(#heat-blur)">
                   @for (cell of heatCells(); track $index) {
                     <rect [attr.x]="cell.x" [attr.y]="cell.y" [attr.width]="cell.w" [attr.height]="cell.h"
-                          class="heat" [attr.fill]="heatColour()" [attr.fill-opacity]="cell.opacity" />
+                          class="heat" [style.fill]="heatColour()" [attr.fill-opacity]="cell.opacity" />
                   }
                 </g>
               }
