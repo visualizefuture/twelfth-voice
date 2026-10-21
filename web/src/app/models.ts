@@ -291,3 +291,28 @@ export interface StoryRecap {
   verified: boolean;
   checks: string[];
 }
+
+export interface CrewDraft {
+  attempt: number;
+  headline: string;
+  body: string;
+  approved: boolean;
+  checkedBy: string;
+  reasons: string[];
+}
+
+export interface CrewActivity {
+  matchId: string;
+  insightId: string;
+  kind: string;
+  minute: string;
+  audience: string;
+  dataHeadline: string;
+  drafts: CrewDraft[];
+  outcome: 'crew' | 'data' | 'translated';
+  finalHeadline: string;
+  finalBody: string;
+  language: string;
+  translation?: string;
+  at: string;
+}

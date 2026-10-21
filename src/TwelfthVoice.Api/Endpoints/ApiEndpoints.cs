@@ -140,6 +140,11 @@ public static class ApiEndpoints
             .WithName("GetStory")
             .WithSummary("The match story written by the Storyteller agent from the verified recap, fact-checked and translated.");
 
+        matches.MapGet("/{matchId}/crew", (string matchId, int? take, MatchRegistry registry, BroadcastCrew crew) =>
+                WithSession(registry, matchId, s => Results.Ok(crew.RecentActivity(s.MatchId, take ?? 40))))
+            .WithName("GetCrewRoom")
+            .WithSummary("The crew room: each moment the crew worked on, every draft, the fact-checker's verdicts and what went on air.");
+
         matches.MapPost("/{matchId}/ask", async (string matchId, AskRequest request, MatchRegistry registry, MatchAnalyst analyst, CancellationToken ct) =>
             {
                 if (registry.Get(matchId) is not { } session) return Results.NotFound(new { error = $"Match '{matchId}' was not found." });
