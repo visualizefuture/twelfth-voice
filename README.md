@@ -46,6 +46,33 @@ dotnet run --project src/TwelfthVoice.Cli -- generate --home KIN --away WMC --se
 
 The same seed and teams always produce the same match, event for event, which makes demos and tests repeatable.
 
+## The AI broadcast crew
+
+Twelfth Voice uses **Microsoft Agent Framework** agents on a **Microsoft Foundry** model deployment. Each has one job:
+
+| Agent | Job |
+|---|---|
+| **Director** (policy) | Decides which moments deserve AI commentary and which only need translating, within a spending cap. |
+| **Commentator** | Rewrites a moment for each audience: fan or analyst, neutral or supporting one club. |
+| **Fact-checker** | Traces every number in the draft back to the match data, then an AI reviewer checks the claims. A rejected draft goes back to the Commentator once, with the reasons. |
+| **Localizer** | Translates into the viewer's language; the numbers are checked again. |
+| **Analyst** | Answers "Ask the match" questions by calling tools over the live data. |
+| **Storyteller** | Writes the match story from the verified recap. |
+
+**Facts from code, words from AI, nothing unverified on air.** Viewers get the rule-written line instantly; the crew's version replaces it seconds later only if it passes the fact-check. If the model is slow, over budget or wrong, the data-written line simply stays.
+
+### Connect it to Microsoft Foundry
+
+1. In Microsoft Foundry, deploy a chat model (we use `gpt-4.1-mini`, Global Standard).
+2. Store the endpoint and key as user secrets (they never go into the repo):
+
+```bash
+dotnet user-secrets set "AzureAI:Endpoint" "https://<your-resource>.services.ai.azure.com/openai/v1/" --project src/TwelfthVoice.Api
+dotnet user-secrets set "AzureAI:ApiKey" "<your-key>" --project src/TwelfthVoice.Api
+```
+
+Leave out the key to sign in with Microsoft Entra ID instead (`az login` locally, managed identity in Azure; your account needs the *Cognitive Services OpenAI User* role). `AzureAI:Deployment` changes the model, and `AzureAI:MaxCallsPerHour` caps spending. `GET /api/status` shows the crew's calls, approvals, rejections and fallbacks.
+
 ## Fan app (Angular)
 
 Requires [Node.js 22](https://nodejs.org/) or later. Run the API first, then in a second terminal:
@@ -63,6 +90,8 @@ Open **http://localhost:4200**. The dev server forwards `/api` and `/hubs` to th
 - **Momentum chart**: who was on top, minute by minute, with goals marked.
 - **The story**: the personalised feed of key moments and why they matter.
 - **Your view**: fan or analyst, your club, follow a player, language.
+- **Ask the match**: ask a question in any language; the Analyst agent looks it up in the live data.
+- **The story**: the Storyteller's recap, written automatically at full time.
 
 ## Live API
 
@@ -88,7 +117,9 @@ Then open **http://localhost:5080** for the live console: pick two clubs, kick o
 | GET | `/api/matches/{id}/insights` | Personalised insights (`?mode=analyst&favoriteTeamId=HAR&focusPlayerId=HAR-09&language=es`) |
 | GET | `/api/matches/{id}/events` | Released events (`?after=sequence&type=Shot`) |
 | GET | `/api/matches/{id}/timeline` | Momentum, control, xG and score every ~30 match seconds |
-| GET | `/api/matches/{id}/recap` | Automated recap |
+| GET | `/api/matches/{id}/recap` | Automated recap (facts) |
+| GET | `/api/matches/{id}/story` | The Storyteller's recap (`?mode=analyst&language=es`) |
+| POST | `/api/matches/{id}/ask` | Ask the Analyst agent `{ question, mode, language }` |
 | POST / PUT / GET | `/api/profiles` | Save and load viewer profiles |
 | GET | `/api/status`, `/health` | Service and storage status |
 
@@ -119,6 +150,7 @@ src/
   TwelfthVoice.Simulator     Fictional league, squad generator, match simulator, live feed
   TwelfthVoice.Intelligence  Stats, rolling indicators, insights, recap builder
   TwelfthVoice.Cli           Command-line runner (teams / generate / recap / replay)
+  TwelfthVoice.Agents        The AI broadcast crew: Agent Framework agents, fact-checker, analyst tools
   TwelfthVoice.Api           ASP.NET Core API, SignalR hub, EF Core storage, live console page
 web/                         Angular fan app: live pitch, overlays, momentum, stats, personalised feed
 tests/
@@ -134,7 +166,9 @@ docs/
 - [x] Stats, trends and rule-based explanations
 - [x] ASP.NET Core API + SignalR live channel, SQL persistence (LocalDB / Azure SQL)
 - [x] Personalisation: casual vs analyst, favourite club, player focus, language preference
-- [ ] Multi-agent layer (Microsoft Agent Framework + Microsoft Foundry): Analyst, Explainer, Storyteller, Localizer, Director
+- [x] Multi-agent broadcast crew (Microsoft Agent Framework + Microsoft Foundry) with a fact-checker
+- [x] Ask the match, and the Storyteller's recap
+- [ ] Spoken commentary with Azure AI Speech
 - [ ] MCP server exposing match state as tools
 - [x] Angular fan app: live pitch with overlays, heat and shot maps, momentum chart, personalised feed
 - [x] Continuous integration: build and test on every pull request

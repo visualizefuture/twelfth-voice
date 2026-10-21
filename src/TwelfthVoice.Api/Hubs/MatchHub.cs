@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
+using TwelfthVoice.Agents;
 using TwelfthVoice.Api.Live;
 using TwelfthVoice.Intelligence;
 
@@ -19,11 +20,18 @@ public sealed class MatchHub : Hub
 {
     private readonly MatchRegistry _registry;
     private readonly ViewerConnections _viewers;
+    private readonly BroadcastCrew _crew;
+    private readonly CrewDispatcher _dispatcher;
 
-    public MatchHub(MatchRegistry registry, ViewerConnections viewers)
+    /// <summary>When a viewer joins or changes their view, the crew also reworks this many recent moments for them.</summary>
+    private const int RecentToRework = 8;
+
+    public MatchHub(MatchRegistry registry, ViewerConnections viewers, BroadcastCrew crew, CrewDispatcher dispatcher)
     {
         _registry = registry;
         _viewers = viewers;
+        _crew = crew;
+        _dispatcher = dispatcher;
     }
 
     public async Task<JoinResult> JoinMatch(string matchId, ViewerProfile? profile)
@@ -32,19 +40,34 @@ public sealed class MatchHub : Hub
         await LeaveCurrentAsync();
 
         var effective = profile ?? ViewerProfile.Default;
-        _viewers.Set(new ViewerConnection(Context.ConnectionId, session.MatchId, effective));
+        var connection = new ViewerConnection(Context.ConnectionId, session.MatchId, effective);
+        _viewers.Set(connection);
         session.Viewers = _viewers.CountFor(session.MatchId);
         await Groups.AddToGroupAsync(Context.ConnectionId, HubGroups.Match(session.MatchId));
 
-        return session.Join(effective);
+        var joined = session.Join(effective);
+        ReworkRecent(session, connection);
+        return joined with { RecentInsights = _crew.ApplyCached(joined.RecentInsights, effective) };
     }
 
     public LiveState UpdateProfile(ViewerProfile profile)
     {
         var connection = _viewers.Get(Context.ConnectionId) ?? throw new HubException("Join a match first.");
-        _viewers.Set(connection with { Profile = profile });
+        var updated = connection with { Profile = profile };
+        _viewers.Set(updated);
         var session = _registry.Get(connection.MatchId) ?? throw new HubException("The match is no longer available.");
+        ReworkRecent(session, updated);
         return session.State(profile.FocusPlayerId);
+    }
+
+    /// <summary>Asks the crew to voice or translate the latest moments for this viewer's new view; results arrive as "insightUpdate".</summary>
+    private void ReworkRecent(MatchSession session, ViewerConnection connection)
+    {
+        var recent = session.Insights()
+            .Where(i => InsightPersonalizer.Wants(connection.Profile, i))
+            .TakeLast(RecentToRework)
+            .ToList();
+        _dispatcher.Dispatch(session, recent, new[] { connection });
     }
 
     public async Task SubscribeEvents(bool subscribe)

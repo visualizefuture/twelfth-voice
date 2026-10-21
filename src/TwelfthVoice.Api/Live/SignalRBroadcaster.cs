@@ -10,7 +10,8 @@ namespace TwelfthVoice.Api.Live;
 /// raw events go to the opt-in events group.
 ///
 /// Client messages:
-///   "insight" → <see cref="PersonalizedInsight"/>
+///   "insight" → <see cref="PersonalizedInsight"/> (rule-written, instant)
+///   "insightUpdate" → <see cref="PersonalizedInsight"/> (same id, rewritten by the broadcast crew and fact-checked)
 ///   "state"   → <see cref="LiveState"/>
 ///   "status"  → <see cref="MatchSummary"/>
 ///   "event"   → <see cref="MatchEvent"/> (events group only)
@@ -19,11 +20,13 @@ public sealed class SignalRBroadcaster : IMatchBroadcaster
 {
     private readonly IHubContext<MatchHub> _hub;
     private readonly ViewerConnections _viewers;
+    private readonly CrewDispatcher _crew;
 
-    public SignalRBroadcaster(IHubContext<MatchHub> hub, ViewerConnections viewers)
+    public SignalRBroadcaster(IHubContext<MatchHub> hub, ViewerConnections viewers, CrewDispatcher crew)
     {
         _hub = hub;
         _viewers = viewers;
+        _crew = crew;
     }
 
     public async Task PublishAsync(MatchSession session, MatchEvent matchEvent, IReadOnlyList<Insight> insights, bool stateDue, CancellationToken cancellationToken)
@@ -55,6 +58,8 @@ public sealed class SignalRBroadcaster : IMatchBroadcaster
             if (summary is not null && snapshot is not null)
                 await client.SendAsync("state", LiveState.From(summary, snapshot, viewer.Profile.FocusPlayerId), cancellationToken);
         }
+
+        _crew.Dispatch(session, insights, viewers);
     }
 
     public Task StatusChangedAsync(MatchSession session, CancellationToken cancellationToken) =>

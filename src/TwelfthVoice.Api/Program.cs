@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using TwelfthVoice.Agents;
 using TwelfthVoice.Api.Endpoints;
 using TwelfthVoice.Api.Hubs;
 using TwelfthVoice.Api.Live;
@@ -28,6 +29,18 @@ builder.Services.AddCors(options => options.AddPolicy("frontend", policy => poli
     .AllowCredentials()));
 
 builder.Services.AddTwelfthVoiceStorage(builder.Configuration);
+// The broadcast crew (Microsoft Agent Framework on Microsoft Foundry). Without an endpoint it stays off
+// and every line remains rule-written, so the app always runs.
+var agentOptions = builder.Configuration.GetSection(AgentOptions.SectionName).Get<AgentOptions>() ?? new AgentOptions();
+builder.Services.AddSingleton(agentOptions);
+if (agentOptions.IsConfigured)
+    builder.Services.AddSingleton<ICrewModel, FoundryCrewModel>();
+else
+    builder.Services.AddSingleton<ICrewModel, NullCrewModel>();
+builder.Services.AddSingleton<BroadcastCrew>();
+builder.Services.AddSingleton<MatchAnalyst>();
+builder.Services.AddSingleton<CrewDispatcher>();
+
 builder.Services.AddSingleton<ViewerConnections>();
 builder.Services.AddSingleton<IMatchBroadcaster, SignalRBroadcaster>();
 builder.Services.AddSingleton<MatchRegistry>();

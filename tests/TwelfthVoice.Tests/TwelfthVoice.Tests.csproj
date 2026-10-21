@@ -3,6 +3,7 @@
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <NoWarn>$(NoWarn);OPENAI001;MEAI001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,6 +24,7 @@
     <ProjectReference Include="..\..\src\TwelfthVoice.Simulator\TwelfthVoice.Simulator.csproj" />
     <ProjectReference Include="..\..\src\TwelfthVoice.Intelligence\TwelfthVoice.Intelligence.csproj" />
     <ProjectReference Include="..\..\src\TwelfthVoice.Api\TwelfthVoice.Api.csproj" />
+    <ProjectReference Include="..\..\src\TwelfthVoice.Agents\TwelfthVoice.Agents.csproj" />
   </ItemGroup>
 
 </Project>

@@ -67,6 +67,15 @@ public sealed record PersonalizedInsight
     public Perspective Perspective { get; init; }
     public bool AboutFocusPlayer { get; init; }
     public string Language { get; init; } = "en";
+
+    /// <summary>"rules" (written by code from the data) or "ai" (written by the broadcast crew and fact-checked).</summary>
+    public string Source { get; init; } = "rules";
+
+    /// <summary>True when the text passed the fact-check (always true for rule-written text).</summary>
+    public bool Verified { get; init; } = true;
+
+    /// <summary>What the crew did to this line, e.g. "Numbers traced to match data", "Approved by fact-checker", "Translated to Spanish".</summary>
+    public IReadOnlyList<string> Checks { get; init; } = Array.Empty<string>();
 }
 
 /// <summary>
@@ -125,7 +134,7 @@ public static class InsightPersonalizer
             Overlay = overlay,
             Perspective = PerspectiveOf(profile, insight),
             AboutFocusPlayer = aboutPlayer,
-            Language = profile.Language
+            Language = "en" // rule-written text is English; the Localizer agent sends translations as updates
         };
     }
 

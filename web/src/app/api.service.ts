@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import {
-  CreateMatchRequest, MatchEvent, MatchList, MatchSummary, PersonalizedInsight, Team, ViewerProfile
+  AnalystAnswer, CreateMatchRequest, MatchEvent, MatchList, MatchSummary, PersonalizedInsight, StoryRecap, Team, ViewerProfile
 } from './models';
 
 /** Thin wrapper over the REST API. The dev server proxies /api and /hubs to the .NET API. */
@@ -36,6 +36,18 @@ export class ApiService {
 
   events(matchId: string, after: number, take: number): Promise<MatchEvent[]> {
     return firstValueFrom(this.http.get<MatchEvent[]>(`/api/matches/${matchId}/events`, { params: { after, take } }));
+  }
+
+  ask(matchId: string, question: string, profile: ViewerProfile): Promise<AnalystAnswer> {
+    return firstValueFrom(this.http.post<AnalystAnswer>(`/api/matches/${matchId}/ask`, {
+      question, mode: profile.mode, language: profile.language
+    }));
+  }
+
+  story(matchId: string, profile: ViewerProfile): Promise<StoryRecap> {
+    return firstValueFrom(this.http.get<StoryRecap>(`/api/matches/${matchId}/story`, {
+      params: { mode: profile.mode, language: profile.language }
+    }));
   }
 
   insights(matchId: string, profile: ViewerProfile, take = 200): Promise<PersonalizedInsight[]> {
