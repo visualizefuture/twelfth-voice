@@ -8,12 +8,13 @@ on:
     branches: ['feature/**']
     paths: ['web/**', 'tools/screenshots/**', '.github/workflows/screenshots.yml']
 
+# Write access only to push the screenshots to the ci-screenshots branch (easy to browse and pull).
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   shoot:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -46,16 +47,30 @@ jobs:
       - name: Take screenshots
         working-directory: tools/screenshots
         run: |
+          mkdir -p "$OUT_DIR"
           npm init -y > /dev/null
-          npm install --no-audit --no-fund playwright@1.56.1
-          npx playwright install --with-deps chromium
-          node shoot.mjs
+          npm install --no-audit --no-fund playwright@1.56.1 2>&1 | tail -n 5 | tee "$OUT_DIR/install.log"
+          npx playwright install --with-deps chromium > "$OUT_DIR/browser-install.log" 2>&1
+          node shoot.mjs 2>&1 | tee "$OUT_DIR/shoot.log"
+          exit ${PIPESTATUS[0]}
         env:
           OUT_DIR: ${{ github.workspace }}/screenshots
 
       - name: API log
         if: always()
-        run: tail -n 80 api.log || true
+        run: |
+          tail -n 80 api.log || true
+          mkdir -p screenshots && cp api.log screenshots/ || true
+
+      - name: Publish to the ci-screenshots branch
+        if: always()
+        working-directory: screenshots
+        run: |
+          git init -q
+          git checkout -q -b screens
+          git add -A
+          git -c user.name="github-actions" -c user.email="github-actions@users.noreply.github.com" commit -qm "Screenshots for ${{ github.sha }}"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" screens:ci-screenshots
 
       - uses: actions/upload-artifact@v4
         if: always()
