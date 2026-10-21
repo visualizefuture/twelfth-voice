@@ -26,7 +26,8 @@ public sealed class SpeechOptions
 }
 
 /// <summary>A neural voice and the word its commentators shout when the ball goes in.</summary>
-public sealed record CommentaryVoice(string Locale, string Name, string GoalWord);
+/// <param name="LongGoal">The goal word as commentators hold it, e.g. "Gooooooooal". The voice stretches the repeated letters.</param>
+public sealed record CommentaryVoice(string Locale, string Name, string GoalWord, string LongGoal);
 
 /// <summary>
 /// Turns text into speech with Azure AI Speech neural voices (REST API, MP3 out). Every clip is
@@ -38,15 +39,15 @@ public sealed class SpeechService
 
     private static readonly Dictionary<string, CommentaryVoice> Voices = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["en"] = new("en-GB", "en-GB-RyanNeural", "Goal"),
-        ["es"] = new("es-ES", "es-ES-AlvaroNeural", "Gol"),
-        ["fr"] = new("fr-FR", "fr-FR-HenriNeural", "But"),
-        ["pt"] = new("pt-BR", "pt-BR-AntonioNeural", "Gol"),
-        ["ar"] = new("ar-SA", "ar-SA-HamedNeural", "هدف"),
-        ["hi"] = new("hi-IN", "hi-IN-MadhurNeural", "गोल"),
-        ["ja"] = new("ja-JP", "ja-JP-KeitaNeural", "ゴール"),
-        ["de"] = new("de-DE", "de-DE-ConradNeural", "Tor"),
-        ["it"] = new("it-IT", "it-IT-DiegoNeural", "Gol")
+        ["en"] = new("en-GB", "en-GB-RyanNeural", "Goal", "Goooooooooooooaaaal"),
+        ["es"] = new("es-ES", "es-ES-AlvaroNeural", "Gol", "Gooooooooooooool"),
+        ["fr"] = new("fr-FR", "fr-FR-HenriNeural", "But", "Buuuuuuuuuuuut"),
+        ["pt"] = new("pt-BR", "pt-BR-AntonioNeural", "Gol", "Gooooooooooooool"),
+        ["ar"] = new("ar-SA", "ar-SA-HamedNeural", "هدف", "هدددددددف"),
+        ["hi"] = new("hi-IN", "hi-IN-MadhurNeural", "गोल", "गोओओओओओओल"),
+        ["ja"] = new("ja-JP", "ja-JP-KeitaNeural", "ゴール", "ゴーーーーーーーーール"),
+        ["de"] = new("de-DE", "de-DE-ConradNeural", "Tor", "Tooooooooooor"),
+        ["it"] = new("it-IT", "it-IT-DiegoNeural", "Gol", "Gooooooooooool")
     };
 
     private readonly SpeechOptions _options;
@@ -80,16 +81,18 @@ public sealed class SpeechService
         Voices.TryGetValue(NormalizeLanguage(language), out var voice) ? voice : Voices["en"];
 
     /// <summary>
-    /// The goal call: the goal word stretched out and climbing in pitch, then the scorer and the score.
+    /// The goal call: one long held goal word, climbing in pitch, a quick second one, then the scorer
+    /// and the score. Lasts about five seconds.
     /// </summary>
     public static string GoalCallSsml(string? language, string scorer, string homeTeam, int homeScore, string awayTeam, int awayScore)
     {
         var voice = VoiceFor(language);
         string goal = Escape(voice.GoalWord);
+        string held = Escape(voice.LongGoal);
         return Wrap(voice, $"""
-            <prosody rate="-55%" pitch="+28%" volume="x-loud">{goal}!</prosody>
-            <break time="120ms"/>
-            <prosody rate="-35%" pitch="+22%" volume="x-loud">{goal}!</prosody>
+            <prosody rate="x-slow" pitch="+30%" volume="x-loud"><prosody contour="(0%,+0%) (40%,+20%) (100%,+35%)">{held}!</prosody></prosody>
+            <break time="150ms"/>
+            <prosody rate="-20%" pitch="+25%" volume="x-loud">{goal}!</prosody>
             <break time="250ms"/>
             <prosody rate="+8%" pitch="+12%" volume="loud">{Escape(scorer)}! {Escape(homeTeam)} {homeScore}, {Escape(awayTeam)} {awayScore}!</prosody>
             """);

@@ -331,7 +331,7 @@ public sealed class MatchAnalyzer
             produced.Add(Make(InsightKind.PassOfNote, e, 0.45 + (difficulty - 7.5) * 0.08,
                 receiver is null
                     ? $"Quality pass from {p.Name}"
-                    : $"{p.ShortName} finds {receiver.ShortName} with a {FootballMath.DescribeDifficulty(difficulty)} pass",
+                    : $"{p.ShortName} finds {receiver.ShortName} with {Narration.Article(FootballMath.DescribeDifficulty(difficulty))} pass",
                 $"Difficulty {difficulty:0.0}/10: {reasonText}. An average passer completes a ball like that only about {Narration.Pct(typicalSuccess)} of the time.",
                 new OverlayHint("pass-graphic", "pitch-overlay", 6, 55),
                 analyst: $"Distance {distance:0.0} m · Ball speed {e.BallSpeedKmh ?? 0:0} km/h · Difficulty {difficulty:0.0} · {p.ShortName} {p.PassesCompleted}/{p.PassesAttempted} ({Narration.Pct(p.PassAccuracy)})",
