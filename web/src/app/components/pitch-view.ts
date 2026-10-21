@@ -91,7 +91,7 @@ const TRAIL_LENGTH = 6;
           }
           <!-- goals: posts, crossbar and net; stood up in 3D in the stadium, seen from above on the tactical board -->
           @for (side of goalSides; track side) {
-            <div [class]="'goal ' + side" aria-hidden="true">
+            <div [class]="'goalmouth ' + side" aria-hidden="true">
               <i class="net-side near"></i>
               <i class="net-side far"></i>
               <i class="net-top"><i class="net-back"></i></i>
@@ -317,7 +317,7 @@ const TRAIL_LENGTH = 6;
     .ball-shadow { fill: #000; }
 
     /* ---------- goals (tactical: from above, outside the goal line) ---------- */
-    .goal {
+    .goalmouth {
       position: absolute; top: calc(50% - 5.38%); height: 10.76%; width: 1.9%; z-index: 1;
       border: 2px solid #f4f6f8; box-shadow: 0 0 4px rgb(0 0 0 / 0.5);
       background:
@@ -325,17 +325,17 @@ const TRAIL_LENGTH = 6;
         repeating-linear-gradient(90deg, rgb(255 255 255 / 0.35) 0 1px, transparent 1px 5px),
         rgb(0 0 0 / 0.25);
     }
-    .goal.left { left: -1.9%; border-right: 0; }
-    .goal.right { right: -1.9%; border-left: 0; }
-    .goal::before, .goal::after {
+    .goalmouth.left { left: -1.9%; border-right: 0; }
+    .goalmouth.right { right: -1.9%; border-left: 0; }
+    .goalmouth::before, .goalmouth::after {
       content: ''; position: absolute; width: 5px; height: 5px; border-radius: 50%; background: #fff; box-shadow: 0 0 3px #000;
     }
-    .goal.left::before { right: -3px; top: -4px; } .goal.left::after { right: -3px; bottom: -4px; }
-    .goal.right::before { left: -3px; top: -4px; } .goal.right::after { left: -3px; bottom: -4px; }
-    .goal > i { display: none; }
+    .goalmouth.left::before { right: -3px; top: -4px; } .goalmouth.left::after { right: -3px; bottom: -4px; }
+    .goalmouth.right::before { left: -3px; top: -4px; } .goalmouth.right::after { left: -3px; bottom: -4px; }
+    .goalmouth > i { display: none; }
 
     .trail { fill: none; stroke: var(--chalk); stroke-opacity: 0.25; stroke-width: 0.35; stroke-dasharray: 0.8 0.8; }
-    .action { stroke-width: 0.4; stroke: var(--chalk); stroke-opacity: 0.8; }
+    .action { fill: none; stroke-width: 0.4; stroke: var(--chalk); stroke-opacity: 0.8; }
     .action.fail { stroke: var(--red-card); stroke-dasharray: 1 0.8; }
     .action.shot { stroke: var(--floodlight); stroke-width: 0.5; }
     .highlight { stroke: var(--floodlight); stroke-width: 0.6; }
@@ -506,17 +506,17 @@ const TRAIL_LENGTH = 6;
     .stadium .boards span:nth-child(odd) { color: var(--floodlight); }
     .stadium .lines { stroke-opacity: 0.85; stroke-width: 0.35; }
     /* goals stand up in 3D: the face (posts and crossbar) rises from the goal line, nets fold back from it */
-    .stadium .goal {
+    .stadium .goalmouth {
       top: calc(50% - 5.38%); height: 10.76%; width: 3.8%; border: 0; box-shadow: none; background: none;
       transform-style: preserve-3d; z-index: 3;
     }
-    .stadium .goal::before, .stadium .goal::after { display: none; }
-    .stadium .goal.left { left: 0; transform-origin: 0 50%; transform: rotateY(-90deg); }
-    .stadium .goal.right { right: 0; left: auto; transform-origin: 100% 50%; transform: rotateY(90deg); }
+    .stadium .goalmouth::before, .stadium .goalmouth::after { display: none; }
+    .stadium .goalmouth.left { left: 0; transform-origin: 0 50%; transform: rotateY(-90deg); }
+    .stadium .goalmouth.right { right: 0; left: auto; transform-origin: 100% 50%; transform: rotateY(90deg); }
     /* posts = the face's long edges, crossbar = its far edge */
-    .stadium .goal.left { border-top: 3px solid #fff; border-bottom: 3px solid #fff; border-right: 3px solid #fff; }
-    .stadium .goal.right { border-top: 3px solid #fff; border-bottom: 3px solid #fff; border-left: 3px solid #fff; }
-    .stadium .goal > i, .stadium .net-top > i { display: block; position: absolute; transform-style: preserve-3d; }
+    .stadium .goalmouth.left { border-top: 3px solid #fff; border-bottom: 3px solid #fff; border-right: 3px solid #fff; }
+    .stadium .goalmouth.right { border-top: 3px solid #fff; border-bottom: 3px solid #fff; border-left: 3px solid #fff; }
+    .stadium .goalmouth > i, .stadium .net-top > i { display: block; position: absolute; transform-style: preserve-3d; }
     .stadium .net-side, .stadium .net-top, .stadium .net-back {
       background:
         repeating-linear-gradient(0deg, rgb(255 255 255 / 0.55) 0 1px, transparent 1px 4px),
@@ -526,10 +526,10 @@ const TRAIL_LENGTH = 6;
     .stadium .net-side { left: 0; width: 100%; height: 26%; transform-origin: 50% 0; transform: rotateX(90deg); }
     .stadium .net-side.near { top: 100%; }
     .stadium .net-side.far { top: 0; }
-    .stadium .goal.left .net-top { left: 100%; top: 0; height: 100%; width: 50%; transform-origin: 0 50%; transform: rotateY(-90deg); }
-    .stadium .goal.right .net-top { right: 100%; top: 0; height: 100%; width: 50%; transform-origin: 100% 50%; transform: rotateY(90deg); }
-    .stadium .goal.left .net-back { left: 100%; top: 0; height: 100%; width: 200%; transform-origin: 0 50%; transform: rotateY(-90deg); }
-    .stadium .goal.right .net-back { right: 100%; top: 0; height: 100%; width: 200%; transform-origin: 100% 50%; transform: rotateY(90deg); }
+    .stadium .goalmouth.left .net-top { left: 100%; top: 0; height: 100%; width: 50%; transform-origin: 0 50%; transform: rotateY(-90deg); }
+    .stadium .goalmouth.right .net-top { right: 100%; top: 0; height: 100%; width: 50%; transform-origin: 100% 50%; transform: rotateY(90deg); }
+    .stadium .goalmouth.left .net-back { left: 100%; top: 0; height: 100%; width: 200%; transform-origin: 0 50%; transform: rotateY(-90deg); }
+    .stadium .goalmouth.right .net-back { right: 100%; top: 0; height: 100%; width: 200%; transform-origin: 100% 50%; transform: rotateY(90deg); }
     .stadium .token { transform-style: preserve-3d; }
     .stadium .token .figure {
       transform-origin: 50% 100%; top: -24px;
