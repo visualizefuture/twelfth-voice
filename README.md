@@ -77,6 +77,22 @@ dotnet user-secrets set "AzureAI:ApiKey" "<your-key>" --project src/TwelfthVoice
 
 Leave out the key to sign in with Microsoft Entra ID instead (`az login` locally, managed identity in Azure; your account needs the *Cognitive Services OpenAI User* role). `AzureAI:Deployment` changes the model, and `AzureAI:MaxCallsPerHour` caps spending. `GET /api/status` shows the crew's calls, approvals, rejections and fallbacks.
 
+## Sound: the goal call and spoken commentary
+
+On a goal the browser makes a crowd roar (Web Audio, no audio files) and plays a goal call from an **Azure AI Speech** neural voice in the viewer's language: the goal word stretched out and climbing, then the scorer and the score. Switch on **Read the commentary aloud** in *Your view* to hear the crew's fact-checked lines too. The mute button sits in the score bug.
+
+```bash
+dotnet user-secrets set "Speech:Key" "<your-speech-key>" --project src/TwelfthVoice.Api
+dotnet user-secrets set "Speech:Region" "eastus2" --project src/TwelfthVoice.Api
+```
+
+The key stays on the server. The browser can only ask for moments the match produced (by insight id), never arbitrary text, and each clip is cached, so a goal is synthesised once however many fans hear it. The free F0 tier (500,000 characters a month) covers development. Without a key the app falls back to the browser's own voice. `GET /api/status` shows clips and characters used.
+
+| Method | Route | What it does |
+|---|---|---|
+| GET | `/api/matches/{id}/speech/{insightId}/call?language=` | The goal call as MP3 |
+| GET | `/api/matches/{id}/speech/{insightId}?mode=&language=&favoriteTeamId=&focusPlayerId=` | A moment read aloud, exactly as that viewer sees it |
+
 ## MCP server
 
 The API is also a **Model Context Protocol** server at `http://localhost:5080/mcp`, so any MCP client (GitHub Copilot agent mode, Claude, your own agents) can use the live match data as tools:
@@ -188,8 +204,7 @@ docs/
 - [x] Multi-agent broadcast crew (Microsoft Agent Framework + Microsoft Foundry) with a fact-checker
 - [x] Ask the match, and the Storyteller's recap
 - [x] MCP server exposing live match data as tools
-- [ ] Spoken commentary with Azure AI Speech
-- [ ] MCP server exposing match state as tools
+- [x] Goal call and spoken commentary with Azure AI Speech, crowd sound, waving club banners
 - [x] Angular fan app: live pitch with overlays, heat and shot maps, momentum chart, personalised feed
 - [x] Continuous integration: build and test on every pull request
 - [ ] Deployment to Azure Container Apps

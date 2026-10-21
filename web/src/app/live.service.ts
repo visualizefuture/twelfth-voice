@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { HubConnection, HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr';
 import { ApiService } from './api.service';
+import { SoundService } from './sound.service';
 import {
   JoinResult, LiveState, MatchEvent, MatchInfo, MatchSummary, PersonalizedInsight, Player, Team, TimelinePoint, ViewerProfile
 } from './models';
@@ -29,6 +30,7 @@ const DEFAULT_PROFILE: ViewerProfile = { mode: 'Casual', favoriteTeamId: null, f
 @Injectable({ providedIn: 'root' })
 export class LiveService {
   private readonly api = inject(ApiService);
+  private readonly sound = inject(SoundService);
   private connection: HubConnection | null = null;
   private readonly overlayTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private seenSequences = new Set<number>();
@@ -80,6 +82,7 @@ export class LiveService {
   }
 
   leave(): void {
+    this.sound.stop();
     void this.connection?.invoke('LeaveMatch').catch(() => undefined);
     this.reset();
     this.info.set(null);
@@ -173,6 +176,7 @@ export class LiveService {
   private onInsight(insight: PersonalizedInsight): void {
     this.insights.update(list => [insight, ...list].slice(0, MAX_INSIGHTS));
     this.showOverlay(insight);
+    this.sound.onInsight(insight, this.profile());
   }
 
   /** The broadcast crew's fact-checked (and possibly translated) rewrite of a line already on screen. */
