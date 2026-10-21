@@ -18,75 +18,85 @@ const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, m
   imports: [FormsModule, CrestComponent, LineupCardComponent],
   template: `
     <section class="setup">
-      <div class="intro">
+      <header class="hero">
         <h1 class="display">Twelfth Voice</h1>
         <p class="lede">Every fan gets their own match. Pick two clubs, kick off, and watch the game explained your way.</p>
-      </div>
+      </header>
 
       @if (live.notice(); as notice) {
         <p class="notice" role="status">{{ notice }}</p>
       }
 
       <form class="fixture" (ngSubmit)="kickOff()">
-        <div class="teams">
-          <label>
-            <span>Home</span>
-            <span class="pick">
-              <tv-crest [team]="homeTeam()" [size]="34" />
-              <select name="home" [ngModel]="homeId()" (ngModelChange)="homeId.set($event)" required>
-                @for (team of teams(); track team.id) {
-                  <option [value]="team.id">{{ team.name }}</option>
-                }
-              </select>
-            </span>
-          </label>
-          <span class="versus display">v</span>
-          <label>
-            <span>Away</span>
-            <span class="pick">
-              <tv-crest [team]="awayTeam()" [size]="34" />
-              <select name="away" [ngModel]="awayId()" (ngModelChange)="awayId.set($event)" required>
-                @for (team of teams(); track team.id) {
-                  <option [value]="team.id" [disabled]="team.id === homeId()">{{ team.name }}</option>
-                }
-              </select>
-            </span>
-          </label>
+        <div class="sides">
+          <div class="side">
+            <label class="pick">
+              <span>Home</span>
+              <span class="select">
+                <tv-crest [team]="homeTeam()" [size]="34" />
+                <select name="home" [ngModel]="homeId()" (ngModelChange)="homeId.set($event)" required>
+                  @for (team of teams(); track team.id) {
+                    <option [value]="team.id">{{ team.name }}</option>
+                  }
+                </select>
+              </span>
+            </label>
+            @if (homeTeam(); as team) {
+              <tv-lineup-card [team]="team" />
+            }
+          </div>
+
+          <span class="versus display" aria-hidden="true">v</span>
+
+          <div class="side">
+            <label class="pick">
+              <span>Away</span>
+              <span class="select">
+                <tv-crest [team]="awayTeam()" [size]="34" />
+                <select name="away" [ngModel]="awayId()" (ngModelChange)="awayId.set($event)" required>
+                  @for (team of teams(); track team.id) {
+                    <option [value]="team.id" [disabled]="team.id === homeId()">{{ team.name }}</option>
+                  }
+                </select>
+              </span>
+            </label>
+            @if (awayTeam(); as team) {
+              <tv-lineup-card [team]="team" />
+            }
+          </div>
         </div>
 
-        <div class="options">
-          <label>
-            <span>Match seed</span>
-            <input name="seed" type="number" min="1" [(ngModel)]="seed">
+        <div class="launch">
+          <label class="speed">
+            <span>Match speed <b>{{ speedLabel() }}</b></span>
+            <input type="range" name="speed" min="0" [max]="speeds.length - 1" step="1"
+                   [value]="speedIndex()" (input)="speedIndex.set(+$any($event.target).value)"
+                   [attr.aria-valuetext]="speedLabel()" />
+            <span class="ticks" aria-hidden="true">
+              @for (s of speeds; track s.value) { <i>{{ s.short }}</i> }
+            </span>
           </label>
-          <label>
-            <span>Speed</span>
-            <select name="speed" [(ngModel)]="speed">
-              <option [ngValue]="30">30× (half a minute per second)</option>
-              <option [ngValue]="60">60× (a minute per second)</option>
-              <option [ngValue]="120">120×</option>
-              <option [ngValue]="300">300× (whole match in about 20 seconds)</option>
-            </select>
-          </label>
-        </div>
 
-        <button class="primary kick" type="submit" [disabled]="busy() || connecting() || teams().length === 0 || homeId() === awayId()">
-          {{ busy() ? 'Starting…' : 'Kick off' }}
-        </button>
-        @if (connecting()) {
-          <p class="muted" role="status">Connecting to the match server…</p>
-        }
-        @if (error()) {
-          <p class="error" role="alert">{{ error() }}</p>
-        }
+          <details class="more">
+            <summary>More options</summary>
+            <label>
+              <span>Match seed</span>
+              <input name="seed" type="number" min="1" placeholder="New match every time" [(ngModel)]="seed">
+              <small class="muted">The same seed and clubs always play the same match, handy for demos and replays.</small>
+            </label>
+          </details>
+
+          <button class="primary kick" type="submit" [disabled]="busy() || connecting() || teams().length === 0 || homeId() === awayId()">
+            {{ busy() ? 'Starting…' : 'Kick off' }}
+          </button>
+          @if (connecting()) {
+            <p class="muted" role="status">Connecting to the match server…</p>
+          }
+          @if (error()) {
+            <p class="error" role="alert">{{ error() }}</p>
+          }
+        </div>
       </form>
-
-      @if (homeTeam() && awayTeam()) {
-        <div class="sheets">
-          <tv-lineup-card [team]="homeTeam()" />
-          <tv-lineup-card [team]="awayTeam()" />
-        </div>
-      }
 
       @if (liveMatches().length > 0) {
         <div class="running">
@@ -105,31 +115,40 @@ const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, m
     </section>
   `,
   styles: `
-    .setup { max-width: 1080px; margin: 0 auto; padding: 56px 20px; }
-    .fixture { max-width: 720px; }
-    .pick { display: flex; gap: 10px; align-items: center; }
-    .pick select { flex: 1; }
-    .sheets { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 36px; }
-    @media (max-width: 900px) { .sheets { grid-template-columns: 1fr; } }
+    .setup { max-width: 1180px; margin: 0 auto; padding: 40px 20px 56px; }
+    .hero { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 32px;
+      padding-bottom: 20px; margin-bottom: 28px; border-bottom: 1px solid var(--hairline); }
     h1 { font-size: var(--step-3); margin: 0; line-height: 1; }
-    .lede { color: var(--moss); font-size: var(--step-1); max-width: 34ch; margin: 12px 0 36px; }
-    .fixture { display: grid; gap: 20px; }
-    .teams { display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: end; }
-    .versus { font-size: var(--step-2); color: var(--moss); padding-bottom: 4px; }
-    .options { display: grid; grid-template-columns: 1fr 2fr; gap: 14px; }
+    .lede { color: var(--moss); font-size: var(--step-1); margin: 0; max-width: 62ch; }
+    .notice { margin: -8px 0 24px; padding: 10px 14px; border-left: 3px solid var(--floodlight); background: var(--night-2); }
+
+    .sides { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 20px; align-items: start; }
+    .side { display: grid; gap: 14px; align-content: start; }
+    .versus { font-size: var(--step-3); color: var(--moss); padding-top: 26px; }
     label { display: grid; gap: 6px; }
-    label span { font-size: var(--step--1); color: var(--moss); }
-    .kick { justify-self: start; padding: 10px 28px; font-size: var(--step-1); font-family: var(--display); }
+    label > span { font-size: var(--step--1); color: var(--moss); }
+    .select { display: flex; gap: 10px; align-items: center; }
+    .select select { flex: 1; font-size: var(--step-0); }
+
+    .launch { display: grid; gap: 18px; max-width: 560px; margin: 32px auto 0; text-align: center; }
+    .speed b { color: var(--chalk); font-weight: 600; margin-left: 6px; }
+    .speed input { width: 100%; accent-color: var(--floodlight); }
+    .ticks { display: flex; justify-content: space-between; font-size: var(--step--1); color: var(--moss); }
+    .ticks i { font-style: normal; }
+    .more { text-align: left; }
+    .more summary { cursor: pointer; color: var(--moss); font-size: var(--step--1); }
+    .more label { margin-top: 10px; }
+    .more small { font-size: var(--step--1); }
+    .kick { justify-self: center; padding: 12px 48px; font-size: var(--step-2); font-family: var(--display); }
     .error { color: var(--red-card); margin: 0; }
-    .notice { margin: -16px 0 28px; padding: 10px 14px; border-left: 3px solid var(--floodlight); background: var(--night-2); }
+
     .running { margin-top: 48px; border-top: 1px solid var(--hairline); padding-top: 20px; }
     .running h2 { font-size: var(--step-1); margin: 0 0 12px; }
     .running ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
     .running li { display: grid; grid-template-columns: 1fr auto auto; gap: 14px; align-items: center; }
-    @media (max-width: 560px) {
-      .teams { grid-template-columns: 1fr; }
+    @media (max-width: 860px) {
+      .sides { grid-template-columns: minmax(0, 1fr); }
       .versus { display: none; }
-      .options { grid-template-columns: 1fr; }
       .running li { grid-template-columns: 1fr auto; }
     }
   `
@@ -152,8 +171,17 @@ export class SetupComponent implements OnInit {
     const away = this.teams().find(t => t.id === this.awayId());
     return away ? asAwayTeam(away, this.homeTeam()) : undefined;
   });
-  seed = 7;
-  speed = 60;
+  /** Empty = a new match every time. */
+  seed: number | null = null;
+
+  readonly speeds = [
+    { value: 30, short: '30×', label: '30×, half a minute per second' },
+    { value: 60, short: '60×', label: '60×, a minute per second' },
+    { value: 120, short: '120×', label: '120×, two minutes per second' },
+    { value: 300, short: '300×', label: '300×, the whole match in about 20 seconds' }
+  ];
+  readonly speedIndex = signal(1);
+  readonly speedLabel = computed(() => this.speeds[this.speedIndex()].label);
 
   async ngOnInit(): Promise<void> {
     // The API may still be starting (F5 launches it alongside this app, and a cloud host may be
@@ -179,7 +207,10 @@ export class SetupComponent implements OnInit {
     this.busy.set(true);
     this.error.set(null);
     try {
-      const match = await this.api.createMatch({ homeTeamId: this.homeId(), awayTeamId: this.awayId(), seed: this.seed, speed: this.speed });
+      const seed = this.seed && this.seed > 0 ? this.seed : Math.floor(Math.random() * 1_000_000) + 1;
+      const match = await this.api.createMatch({
+        homeTeamId: this.homeId(), awayTeamId: this.awayId(), seed, speed: this.speeds[this.speedIndex()].value
+      });
       await this.live.join(match.matchId);
     } catch {
       this.error.set(this.live.error() ?? 'The match couldn\'t start. Check the API is running and try again.');

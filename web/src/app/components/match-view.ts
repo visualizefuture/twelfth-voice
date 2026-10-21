@@ -29,15 +29,14 @@ import { ViewerSettingsComponent } from './viewer-settings';
         <tv-pitch-view />
         <tv-momentum-chart />
       </div>
+      <!-- everything at a glance beside the pitch: ask, the numbers, the latest two moments -->
       <div class="side">
         <tv-ask-panel class="ask" />
-        <div class="feed-wrap">
-          <tv-insight-feed />
-        </div>
+        <tv-stats-panel class="block" />
+        <tv-insight-feed class="block feed" [limit]="2" />
       </div>
       <tv-story-panel class="panel wide" />
-      <tv-stats-panel class="panel" />
-      <tv-player-card class="panel" />
+      <tv-player-card class="panel wide" />
       <tv-crew-room class="panel wide" />
     </main>
 
@@ -53,15 +52,13 @@ import { ViewerSettingsComponent } from './viewer-settings';
     .stage { display: grid; gap: 18px; align-content: start; }
     .side { display: flex; flex-direction: column; gap: 18px; min-height: 0; }
     .ask { display: block; border-bottom: 1px solid var(--hairline); padding-bottom: 16px; }
-    .feed-wrap { position: relative; flex: 1; min-height: 360px; }
-    .feed-wrap tv-insight-feed { position: absolute; inset: 0; }
+    .block { display: block; border-bottom: 1px solid var(--hairline); padding-bottom: 14px; }
+    .feed { border-bottom: 0; max-height: 70vh; overflow-y: auto; }
     .panel { display: block; border-top: 1px solid var(--hairline); padding-top: 16px; }
     .wide { grid-column: 1 / -1; }
     .banner { margin: 0; padding: 8px 20px; background: #3a2a00; color: var(--floodlight); }
     @media (max-width: 960px) {
       .match { grid-template-columns: minmax(0, 1fr); }
-      .feed-wrap { min-height: 0; }
-      .feed-wrap tv-insight-feed { position: static; max-height: 60vh; }
     }
   `
 })

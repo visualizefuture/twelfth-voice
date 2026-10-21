@@ -141,7 +141,7 @@ const TRAIL_LENGTH = 6;
                 <g filter="url(#heat-blur)">
                   @for (cell of heatCells(); track $index) {
                     <rect [attr.x]="cell.x" [attr.y]="cell.y" [attr.width]="cell.w" [attr.height]="cell.h"
-                          class="heat" [attr.fill-opacity]="cell.opacity" />
+                          class="heat" [attr.fill]="heatColour()" [attr.fill-opacity]="cell.opacity" />
                   }
                 </g>
               }
@@ -219,12 +219,11 @@ const TRAIL_LENGTH = 6;
       <!-- the flat layer on top: broadcast graphics, replay badge, controls -->
       <div class="hud">
         @if (layer() === 'heat') {
-          <div class="layer-note">
-            @if (focusName(); as name) {
-              {{ name }}: {{ heatTouches() }} actions so far
-            } @else {
-              Choose a player in Your view to see their heat map
+          <div class="layer-note heat-pick" role="group" aria-label="Whose heat map">
+            @for (o of heatOptions(); track o.key) {
+              <button type="button" [attr.aria-pressed]="heatSubject() === o.key" (click)="heatChoice.set(o.key)">{{ o.label }}</button>
             }
+            <span>{{ heatTouches() }} actions</span>
           </div>
         }
         @if (layer() === 'shots') {
@@ -406,6 +405,10 @@ const TRAIL_LENGTH = 6;
       100% { transform: rotate(var(--spin)) rotateX(320deg) translateX(3px); }
     }
 
+    .heat-pick { display: flex; gap: 6px; align-items: center; pointer-events: auto; padding: 5px 6px; }
+    .heat-pick button { padding: 3px 10px; font-size: var(--step--1); }
+    .heat-pick button[aria-pressed="true"] { border-color: var(--chalk); background: var(--turf); }
+    .heat-pick span { color: var(--moss); margin: 0 6px; }
     .layer-note { position: absolute; left: 12px; bottom: 10px; font-size: var(--step--1); background: var(--night-2); padding: 4px 10px; }
 
     .gfx { position: absolute; pointer-events: none; animation: gfx-in 0.35s ease-out; }
@@ -839,12 +842,43 @@ export class PitchViewComponent {
     return id ? this.live.players().get(id)?.player.name ?? null : null;
   });
 
+  /** Whose heat map: a club, or the player being followed. Null = the sensible default. */
+  readonly heatChoice = signal<'player' | 'home' | 'away' | null>(null);
+
+  readonly heatOptions = computed(() => {
+    const info = this.live.info();
+    const options: { key: 'player' | 'home' | 'away'; label: string }[] = [];
+    if (this.focusName()) options.push({ key: 'player', label: this.live.players().get(this.live.profile().focusPlayerId!)?.player.shortName ?? 'Player' });
+    if (info) {
+      options.push({ key: 'home', label: info.home.shortName });
+      options.push({ key: 'away', label: info.away.shortName });
+    }
+    return options;
+  });
+
+  /** The followed player if there is one, else the viewer's club, else the home side. */
+  readonly heatSubject = computed<'player' | 'home' | 'away'>(() => {
+    const choice = this.heatChoice();
+    if (choice === 'player' && this.focusName()) return 'player';
+    if (choice === 'home' || choice === 'away') return choice;
+    if (this.focusName()) return 'player';
+    const favourite = this.live.profile().favoriteTeamId;
+    return favourite && favourite === this.live.info()?.away.id ? 'away' : 'home';
+  });
+
+  readonly heatColour = computed(() => {
+    const subject = this.heatSubject();
+    return subject === 'home' ? 'var(--home)' : subject === 'away' ? 'var(--away)' : 'var(--floodlight)';
+  });
+
   private readonly focusTouches = computed(() => {
-    const id = this.live.profile().focusPlayerId;
-    if (!id) return [];
+    const subject = this.heatSubject();
+    const info = this.live.info();
     const home = this.homeId();
+    const playerId = this.live.profile().focusPlayerId;
+    const teamId = subject === 'home' ? info?.home.id : subject === 'away' ? info?.away.id : undefined;
     return this.live.events()
-      .filter(e => e.playerId === id && e.start && TOUCH_TYPES.has(e.type))
+      .filter(e => e.start && TOUCH_TYPES.has(e.type) && (subject === 'player' ? e.playerId === playerId : e.teamId === teamId))
       .map(e => toScreen(e.start!, e.teamId, home));
   });
 

@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, input, signal } from '@angular/core';
 import { LiveService } from '../live.service';
 import { PersonalizedInsight } from '../models';
 
@@ -7,12 +7,19 @@ import { PersonalizedInsight } from '../models';
   selector: 'tv-insight-feed',
   template: `
     <section aria-label="Match story">
-      <h2 class="display">{{ title() }}</h2>
+      <header>
+        <h2 class="display">{{ title() }}</h2>
+        @if (limit() && live.insights().length > limit()!) {
+          <button type="button" class="more" (click)="expanded.set(!expanded())" [attr.aria-expanded]="expanded()">
+            {{ expanded() ? 'Latest only' : 'All ' + live.insights().length }}
+          </button>
+        }
+      </header>
       @if (live.insights().length === 0) {
         <p class="muted">The story starts at kick-off. Key moments and why they matter will appear here.</p>
       }
       <ol aria-live="polite">
-        @for (item of live.insights(); track item.insightId) {
+        @for (item of shown(); track item.insightId) {
           <li [class]="kindClass(item)" [class.mine]="item.perspective === 'Favorite'" [class.focus]="item.aboutFocusPlayer">
             <span class="time">{{ item.clock }}</span>
             <div>
@@ -37,7 +44,9 @@ import { PersonalizedInsight } from '../models';
   styles: `
     :host { display: block; }
     section { display: flex; flex-direction: column; height: 100%; }
-    h2 { font-size: var(--step-1); margin: 0 0 10px; }
+    header { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 0 0 6px; }
+    h2 { font-size: var(--step-1); margin: 0; }
+    .more { font-size: var(--step--1); padding: 3px 10px; }
     ol { list-style: none; margin: 0; padding: 0 4px 0 0; overflow-y: auto; flex: 1; min-height: 0; }
     li { display: grid; grid-template-columns: 3.6em 1fr; gap: 10px; padding: 10px 0 10px 10px; border-left: 3px solid transparent; border-bottom: 1px solid var(--hairline); }
     .time { font-family: var(--display); color: var(--moss); font-variant-numeric: tabular-nums; }
@@ -56,6 +65,14 @@ import { PersonalizedInsight } from '../models';
 })
 export class InsightFeedComponent {
   readonly live = inject(LiveService);
+  /** Show only the newest few until the viewer asks for all of them. */
+  readonly limit = input<number | null>(null);
+  readonly expanded = signal(false);
+  readonly shown = computed(() => {
+    const all = this.live.insights();
+    const n = this.limit();
+    return n && !this.expanded() ? all.slice(0, n) : all;
+  });
 
   readonly title = computed(() => {
     const p = this.live.profile();
