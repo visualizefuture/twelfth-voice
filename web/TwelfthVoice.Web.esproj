@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.VisualStudio.JavaScript.Sdk/1.0.6887863">
+  <!-- The Angular fan app as a Visual Studio JavaScript project, so it lives in the solution and starts with F5. -->
+  <PropertyGroup>
+    <!-- F5 runs the dev server (with the /api and /hubs proxy to TwelfthVoice.Api). -->
+    <StartupCommand>npm start</StartupCommand>
+    <!-- "ng serve" compiles on the fly, so a solution build doesn't need a production Angular build. -->
+    <ShouldRunBuildScript>false</ShouldRunBuildScript>
+    <!-- CI installs and builds the app in its own job; skip npm when the solution is built there. -->
+    <ShouldRunNpmInstall Condition="'$(CI)' == 'true'">false</ShouldRunNpmInstall>
+    <BuildOutputFolder>$(MSBuildProjectDirectory)\dist\twelfth-voice-web\browser\</BuildOutputFolder>
+  </PropertyGroup>
+</Project>

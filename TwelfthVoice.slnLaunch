@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "API + fan app",
+    "Projects": [
+      {
+        "Path": "src\\TwelfthVoice.Api\\TwelfthVoice.Api.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "web\\TwelfthVoice.Web.esproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

@@ -9,7 +9,8 @@ namespace TwelfthVoice.Api.Hubs;
 /// Real-time channel at <c>/hubs/match</c>.
 ///
 /// Client → server:
-///   JoinMatch(matchId, profile)  → JoinResult (catch-up: summary, info, state, recent insights)
+///   JoinMatch(matchId, profile)  → JoinResult (catch-up: summary, info, state, recent insights),
+///                                  or null if the match isn't running here (e.g. after a restart)
 ///   UpdateProfile(profile)       change mode / club / player / language mid-match
 ///   SubscribeEvents(bool)        opt in or out of the raw event feed
 ///   LeaveMatch()
@@ -34,10 +35,14 @@ public sealed class MatchHub : Hub
         _dispatcher = dispatcher;
     }
 
-    public async Task<JoinResult> JoinMatch(string matchId, ViewerProfile? profile)
+    public async Task<JoinResult?> JoinMatch(string matchId, ViewerProfile? profile)
     {
-        var session = _registry.Get(matchId) ?? throw new HubException($"Match '{matchId}' was not found.");
         await LeaveCurrentAsync();
+
+        // Matches live in memory, so a restart (or Azure scaling to zero) ends them. That's an
+        // expected situation for a reconnecting browser, not a server error.
+        var session = _registry.Get(matchId);
+        if (session is null) return null;
 
         var effective = profile ?? ViewerProfile.Default;
         var connection = new ViewerConnection(Context.ConnectionId, session.MatchId, effective);
