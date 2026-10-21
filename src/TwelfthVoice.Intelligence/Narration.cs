@@ -80,4 +80,8 @@ public static class Narration
 
     public static string ScoreLine(MatchInfo info, int homeGoals, int awayGoals) =>
         $"{info.Home.ShortName} {homeGoals}–{awayGoals} {info.Away.ShortName}";
+
+    /// <summary>"a hard", "an exceptional": the indefinite article for a word.</summary>
+    public static string Article(string word) =>
+        word.Length > 0 && "aeiouAEIOU".Contains(word[0]) ? $"an {word}" : $"a {word}";
 }
