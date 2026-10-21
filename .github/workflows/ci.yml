@@ -34,6 +34,14 @@ jobs:
       - name: Test
         run: dotnet test TwelfthVoice.sln --no-build --configuration Release --logger "trx;LogFileName=results.trx" --results-directory TestResults
 
+      - name: Check for vulnerable packages
+        run: |
+          dotnet list TwelfthVoice.sln package --vulnerable --include-transitive 2>&1 | tee vulnerable.txt
+          if grep -qE "has the following vulnerable packages" vulnerable.txt; then
+            echo "::error::Vulnerable NuGet packages found (see the list above)."
+            exit 1
+          fi
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -58,6 +66,9 @@ jobs:
       - name: Install
         run: |
           if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+
+      - name: Check for vulnerable packages
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Build
         run: npm run build
