@@ -4,6 +4,7 @@ using TwelfthVoice.Agents;
 using TwelfthVoice.Api.Endpoints;
 using TwelfthVoice.Api.Hubs;
 using TwelfthVoice.Api.Live;
+using TwelfthVoice.Api.Mcp;
 using TwelfthVoice.Api.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -45,6 +46,15 @@ builder.Services.AddSingleton<ViewerConnections>();
 builder.Services.AddSingleton<IMatchBroadcaster, SignalRBroadcaster>();
 builder.Services.AddSingleton<MatchRegistry>();
 
+// MCP server: the live match data as tools for any MCP client (GitHub Copilot, Claude, other agents).
+bool mcpEnabled = builder.Configuration.GetValue("Mcp:Enabled", true);
+if (mcpEnabled)
+{
+    builder.Services.AddMcpServer()
+        .WithHttpTransport(options => options.Stateless = true)
+        .WithTools<MatchMcpTools>();
+}
+
 var app = builder.Build();
 
 app.UseCors("frontend");
@@ -55,6 +65,7 @@ app.MapOpenApi();
 app.MapHealthChecks("/health");
 app.MapTwelfthVoiceApi();
 app.MapHub<MatchHub>("/hubs/match");
+if (mcpEnabled) app.MapMcp("/mcp");
 
 app.Run();
 
