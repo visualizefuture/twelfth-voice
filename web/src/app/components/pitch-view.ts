@@ -7,6 +7,7 @@ import { PITCH_LENGTH, PITCH_WIDTH, TOUCH_TYPES, actionLabel, ballPosition, toPe
 import { ReplayService, minute } from '../replay.service';
 import { crowdTile } from '../stadium';
 import { ClubBannerComponent } from './club-banner';
+import { CrestComponent } from './crest';
 import { PortraitComponent } from './portrait';
 
 type Layer = 'live' | 'heat' | 'shots';
@@ -30,7 +31,7 @@ const TRAIL_LENGTH = 6;
  */
 @Component({
   selector: 'tv-pitch-view',
-  imports: [PortraitComponent, ClubBannerComponent],
+  imports: [PortraitComponent, ClubBannerComponent, CrestComponent],
   template: `
     <div class="layers">
       <div class="tabs" role="tablist" aria-label="Pitch view">
@@ -63,6 +64,20 @@ const TRAIL_LENGTH = 6;
         <div class="stand right" [style.background-image]="crowd().away" aria-hidden="true"></div>
         @for (light of floodlights; track light) {
           <div class="tower" [class]="'tower ' + light" aria-hidden="true"><i></i></div>
+        }
+        <!-- goal: the scoring club's fans unfurl a giant tifo across the far stand, and confetti falls -->
+        @if (celebration(); as c) {
+          <div class="tifo" [class.from-left]="c.home" [style.--a]="c.a" [style.--b]="c.b" aria-hidden="true">
+            <tv-crest class="tifo-crest" [team]="c.team" [size]="96" />
+            <span class="tag-text">{{ c.word }}</span>
+            <span class="tag-sub">{{ c.scorer }}</span>
+          </div>
+          <div class="confetti" aria-hidden="true">
+            @for (bit of confetti; track $index) {
+              <i [style.left.%]="bit.left" [style.animation-delay.s]="bit.delay" [style.animation-duration.s]="bit.duration"
+                 [style.background]="$index % 3 === 0 ? c.b : c.a" [style.width.px]="bit.size" [style.height.px]="bit.size * 1.6"></i>
+            }
+          </div>
         }
       }
 
@@ -214,38 +229,8 @@ const TRAIL_LENGTH = 6;
           </div>
           <div class="replay-progress"><i [style.width.%]="(r.index + 1) / r.frames.length * 100"></i></div>
         } @else {
-          @for (o of live.overlays(); track o.id) {
-            @switch (o.placement) {
-              @case ('full-width') {
-                <div class="gfx banner" [class.goal]="o.insight.kind === 'Goal'">
-                  @if (o.insight.kind === 'Goal' && scoringTeam(o.insight); as team) {
-                    <tv-club-banner class="flag-left" [team]="team" size="big" />
-                    <tv-club-banner class="flag-right" [team]="team" side="away" size="big" />
-                  }
-                  <strong class="display">{{ o.insight.headline }}</strong>
-                  <p>{{ o.insight.body }}</p>
-                </div>
-              }
-              @case ('centre') {
-                <div class="gfx summary">
-                  <strong class="display">{{ o.insight.headline }}</strong>
-                  <p>{{ o.insight.body }}</p>
-                </div>
-              }
-              @case ('top-bar') {
-                <div class="gfx chip top">{{ o.insight.headline }}</div>
-              }
-              @case ('top-right') {
-                <div class="gfx chip top right">{{ o.insight.headline }}</div>
-              }
-              @case ('near-player') {}
-              @default {
-                <div class="gfx lower" [class.mine]="o.insight.perspective === 'Favorite'">
-                  <strong>{{ o.insight.headline }}</strong>
-                  <p>{{ o.insight.body }}</p>
-                </div>
-              }
-            }
+          @for (o of chips(); track o.id) {
+            <div class="gfx chip top" [class.right]="o.placement === 'top-right'">{{ o.insight.headline }}</div>
           }
         }
 
@@ -262,6 +247,29 @@ const TRAIL_LENGTH = 6;
           </button>
         }
       </div>
+    </div>
+
+    <!-- broadcast graphics sit in a rail under the pitch, so they never cover the play -->
+    <div class="rail" aria-live="polite">
+      @if (!replay.active()) {
+        @for (o of railGraphics(); track o.id) {
+          <div class="card" [class.goal]="o.insight.kind === 'Goal'" [class.mine]="o.insight.perspective === 'Favorite'"
+               [class.big]="o.placement === 'full-width' || o.placement === 'centre'">
+            @if (o.insight.kind === 'Goal' && scoringTeam(o.insight); as team) {
+              <tv-club-banner [team]="team" />
+            }
+            <div class="card-text">
+              <strong [class.display]="o.placement === 'full-width' || o.placement === 'centre'">{{ o.insight.headline }}</strong>
+              <p>{{ o.insight.body }}</p>
+            </div>
+            @if (o.insight.kind === 'Goal' && scoringTeam(o.insight); as team) {
+              <tv-club-banner [team]="team" side="away" />
+            }
+          </div>
+        } @empty {
+          <div class="card idle muted">{{ idleLine() }}</div>
+        }
+      }
     </div>
   `,
   styles: `
@@ -333,6 +341,56 @@ const TRAIL_LENGTH = 6;
     .replaying .token { transition-duration: 0.8s; transition-timing-function: ease-in-out; }
     .replaying .ball { transition-duration: 0.8s; transition-timing-function: ease-in-out; }
     .replaying .tag { transition-duration: 0.8s; }
+
+    .rail { display: grid; gap: 8px; margin-top: 10px; min-height: 78px; align-content: start; }
+    .card {
+      display: flex; align-items: center; gap: 16px; padding: 10px 16px; background: var(--night-2);
+      border-left: 4px solid var(--chalk); animation: gfx-in 0.35s ease-out;
+    }
+    .card-text { flex: 1; min-width: 0; }
+    .card strong { display: block; font-size: var(--step-0); }
+    .card strong.display { font-size: var(--step-1); }
+    .card p { margin: 3px 0 0; font-size: var(--step--1); color: var(--moss); }
+    .card.mine { border-left-color: var(--floodlight); }
+    .card.goal { border-left: 0; border-top: 3px solid var(--floodlight); background: #1d1600; text-align: center; padding: 12px 18px; }
+    .card.goal strong { color: var(--floodlight); font-size: var(--step-2); }
+    .card.idle { border-left-color: var(--hairline); font-size: var(--step--1); }
+
+    .tifo {
+      position: absolute; left: 6%; right: 6%; top: 9%; height: 23%; z-index: 2; overflow: hidden;
+      display: flex; align-items: center; justify-content: center; gap: 3%;
+      background: repeating-linear-gradient(90deg, var(--a) 0 9%, var(--b) 9% 12%);
+      box-shadow: inset 0 0 40px rgb(0 0 0 / 0.45);
+      transform-origin: 100% 50%; animation: unfurl 0.9s cubic-bezier(.2,.8,.2,1) both, ripple-tifo 2.4s ease-in-out 0.9s infinite;
+      /* a crowd-held cloth: slightly uneven edges */
+      clip-path: polygon(0 4%, 12% 0, 30% 3%, 50% 0, 70% 4%, 88% 1%, 100% 3%, 100% 97%, 85% 100%, 64% 96%, 45% 100%, 25% 97%, 0 100%);
+    }
+    .tifo.from-left { transform-origin: 0 50%; }
+    .tifo::after {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: repeating-linear-gradient(90deg, rgb(0 0 0 / 0.18) 0, rgb(255 255 255 / 0.10) 6%, rgb(0 0 0 / 0.18) 12%);
+      background-size: 200% 100%; mix-blend-mode: soft-light; animation: folds 1.4s linear infinite;
+    }
+    .tifo-crest { filter: drop-shadow(0 4px 8px rgb(0 0 0 / 0.5)); }
+    .tifo .tag-text {
+      font-family: 'Permanent Marker', var(--display); font-size: clamp(28px, 6.5vw, 92px); line-height: 1; color: #fff;
+      transform: rotate(-4deg); letter-spacing: 0.02em;
+      text-shadow: 3px 3px 0 rgb(0 0 0 / 0.65), -2px -2px 0 var(--b), 0 0 24px rgb(255 255 255 / 0.25);
+      -webkit-text-stroke: 2px rgb(0 0 0 / 0.55);
+    }
+    .tifo .tag-sub {
+      font-family: 'Permanent Marker', var(--display); font-size: clamp(14px, 2.2vw, 30px); color: #fff; transform: rotate(-3deg);
+      text-shadow: 2px 2px 0 rgb(0 0 0 / 0.6);
+    }
+    @keyframes unfurl { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    @keyframes ripple-tifo { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.12); } }
+    @keyframes folds { to { background-position: -200% 0; } }
+    .confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 5; }
+    .confetti i { position: absolute; top: -4%; border-radius: 1px; opacity: 0.95; animation: fall linear both; }
+    @keyframes fall {
+      0% { transform: translateY(0) rotate(0deg); }
+      100% { transform: translateY(1000px) rotate(540deg); opacity: 0.7; }
+    }
 
     .layer-note { position: absolute; left: 12px; bottom: 10px; font-size: var(--step--1); background: var(--night-2); padding: 4px 10px; }
 
@@ -471,6 +529,8 @@ const TRAIL_LENGTH = 6;
     @media (prefers-reduced-motion: reduce) {
       .token, .ball, .tag, .replay-progress i { transition: none !important; }
       .replay-badge .dot { animation: none; }
+      .tifo, .tifo::after { animation: none; }
+      .confetti { display: none; }
     }
   `
 })
@@ -496,6 +556,51 @@ export class PitchViewComponent {
       away: crowdTile(home, away, 0.08, seed + 2)
     };
   });
+
+  /** Short headline chips stay on the pitch's top edge; everything with a body goes in the rail below. */
+  readonly chips = computed(() => this.live.overlays().filter(o => o.placement === 'top-bar' || o.placement === 'top-right'));
+
+  /** Rail graphics, most important first, at most two so the layout stays steady. */
+  readonly railGraphics = computed(() => this.live.overlays()
+    .filter(o => !['top-bar', 'top-right', 'near-player', 'pitch-overlay'].includes(o.placement))
+    .sort((a, b) => b.insight.overlay.priority - a.insight.overlay.priority)
+    .slice(0, 2));
+
+  readonly idleLine = computed(() => {
+    const summary = this.live.summary();
+    if (!summary) return '';
+    if (summary.status === 'Finished') return 'Full time. Replay any goal above, or read the story.';
+    if (summary.status === 'Paused') return 'Paused.';
+    return 'Live. Big moments appear here as they happen.';
+  });
+
+  /** A goal is on screen: the scoring club's fans celebrate in the stands. */
+  readonly celebration = computed(() => {
+    if (this.replay.active()) return null;
+    const goal = this.live.overlays().find(o => o.insight.kind === 'Goal');
+    const team = goal ? this.scoringTeam(goal.insight) : null;
+    if (!goal || !team) return null;
+    const kit = team.matchKit;
+    const info = this.live.info();
+    const scorerId = goal.insight.playerIds[0];
+    const scorer = scorerId ? this.live.players().get(scorerId)?.player : undefined;
+    return {
+      team,
+      home: team.id === info?.home.id,
+      a: kit?.shirt ?? team.primaryColor,
+      b: kit?.trim ?? team.secondaryColor,
+      word: GOAL_WORDS[this.live.profile().language] ?? 'GOOOAL!',
+      scorer: scorer ? `${scorer.shortName} ${scorer.shirtNumber}` : team.shortName
+    };
+  });
+
+  /** Confetti pieces, fixed per session so they don't reshuffle on every render. */
+  readonly confetti = Array.from({ length: 46 }, (_, i) => ({
+    left: (i * 37) % 100 + ((i * 13) % 7) / 7,
+    delay: ((i * 17) % 20) / 10,
+    duration: 3 + ((i * 7) % 10) / 4,
+    size: 5 + (i % 4) * 2
+  }));
 
   /** What the pitch shows: the replay frame when a replay is rolling, otherwise the live action. */
   private readonly action = computed(() => this.replay.frame() ?? this.live.lastAction());
@@ -729,3 +834,8 @@ function loadCamera(): Camera {
     return 'stadium';
   }
 }
+
+const GOAL_WORDS: Record<string, string> = {
+  en: 'GOOOAL!', es: '¡GOOOL!', pt: 'GOOOL!', it: 'GOOOL!', fr: 'BUUUT !', de: 'TOOOR!',
+  ar: 'هدف!', hi: 'गोल!', ja: 'ゴール!'
+};

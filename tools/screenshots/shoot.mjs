@@ -30,9 +30,10 @@ await shot('02b-pitch-stadium', page.locator('tv-pitch-view .stage'));
 
 // Wait for a goal (up to 90 s real time), capture the banner, then the automatic replay.
 try {
-  await page.waitForSelector('.banner.goal', { timeout: 90_000 });
-  await page.waitForTimeout(700);
+  await page.waitForSelector('.card.goal', { timeout: 90_000 });
+  await page.waitForTimeout(1200);
   await shot('03-goal');
+  await shot('03b-goal-pitch', page.locator('tv-pitch-view'));
   await page.waitForSelector('.replay-badge', { timeout: 15_000 });
   await page.waitForTimeout(2500);
   await shot('04-replay');

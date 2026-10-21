@@ -157,8 +157,9 @@ export class SoundService {
       if (clip) {
         this.stopVoice(); // anything that slipped in while the call was loading
         await this.play(clip);
-      } else {
-        // No cloud voice: the browser's own, with the word stretched out.
+      } else if (!this.cloudVoice()) {
+        // Only when the server has no Azure voice at all: the browser's own, with the word stretched out.
+        // (If Azure is set up but one call fails, stay silent rather than mix in a different voice.)
         await this.speakLocally(`Gooooooooooooaaaaaaal! ${insight.headline.replace(/^GOAL!\s*/i, '')}`, profile.language, 1.25);
       }
     })();
