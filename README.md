@@ -77,6 +77,21 @@ dotnet user-secrets set "AzureAI:ApiKey" "<your-key>" --project src/TwelfthVoice
 
 Leave out the key to sign in with Microsoft Entra ID instead (`az login` locally, managed identity in Azure; your account needs the *Cognitive Services OpenAI User* role). `AzureAI:Deployment` changes the model, and `AzureAI:MaxCallsPerHour` caps spending. `GET /api/status` shows the crew's calls, approvals, rejections and fallbacks.
 
+## MCP server
+
+The API is also a **Model Context Protocol** server at `http://localhost:5080/mcp`, so any MCP client (GitHub Copilot agent mode, Claude, your own agents) can use the live match data as tools:
+
+| Tool | What it does |
+|---|---|
+| `list_teams`, `list_matches` | The clubs, and the matches running now |
+| `start_match` | Simulate and start a match `{ home, away, seed, speed }` |
+| `get_match_state` | Score, clock, momentum, control vs chaos, tempo |
+| `get_team_stats`, `get_player_stats`, `get_top_players` | Team, player and leaderboard statistics |
+| `get_key_moments`, `get_momentum` | Key moments with why they mattered; momentum over time |
+| `get_recap`, `get_crew_room` | The recap, and the AI crew's drafts and fact-checks |
+
+The repo's `.mcp.json` registers it for Visual Studio. In VS Code, add the same entry to `.vscode/mcp.json`. Then, with the API running, ask Copilot in agent mode something like *"Start Harbourside v Ironvale and tell me who's controlling the game."* Set `Mcp:Enabled` to `false` to turn the endpoint off.
+
 ## Fan app (Angular)
 
 Requires [Node.js 22](https://nodejs.org/) or later. Run the API first, then in a second terminal:
@@ -172,6 +187,7 @@ docs/
 - [x] Personalisation: casual vs analyst, favourite club, player focus, language preference
 - [x] Multi-agent broadcast crew (Microsoft Agent Framework + Microsoft Foundry) with a fact-checker
 - [x] Ask the match, and the Storyteller's recap
+- [x] MCP server exposing live match data as tools
 - [ ] Spoken commentary with Azure AI Speech
 - [ ] MCP server exposing match state as tools
 - [x] Angular fan app: live pitch with overlays, heat and shot maps, momentum chart, personalised feed

@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "twelfth-voice": {
+      "type": "http",
+      "url": "http://localhost:5080/mcp"
+    }
+  }
+}
