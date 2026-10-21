@@ -50,6 +50,8 @@ export class LiveService {
   /** A message for the fixtures screen, e.g. why the viewer was sent back to it. */
   readonly notice = signal<string | null>(null);
   readonly profile = signal<ViewerProfile>(loadProfile());
+  /** The latest goal that arrived live (not from history), so a replay can roll after it. */
+  readonly lastLiveGoal = signal<MatchEvent | null>(null);
 
   readonly matchId = computed(() => this.info()?.matchId ?? null);
 
@@ -210,6 +212,7 @@ export class LiveService {
     this.seenSequences.add(e.sequence);
     if (e.start || e.end) this.lastAction.set(e);
     this.events.update(list => [...list, e]);
+    if (e.type === 'Goal') this.lastLiveGoal.set(e);
   }
 
   private async loadEventHistory(matchId: string): Promise<void> {
@@ -267,6 +270,7 @@ export class LiveService {
     this.events.set([]);
     this.lastAction.set(null);
     this.overlays.set([]);
+    this.lastLiveGoal.set(null);
   }
 }
 

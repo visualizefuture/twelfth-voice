@@ -1,5 +1,6 @@
 import { Component, computed, inject, output } from '@angular/core';
 import { LiveService } from '../live.service';
+import { ReplayService } from '../replay.service';
 import { SoundService } from '../sound.service';
 import { ViewerMode } from '../models';
 
@@ -68,6 +69,15 @@ import { ViewerMode } from '../models';
       </label>
 
       <fieldset class="sound">
+        <legend>Replays</legend>
+        <label class="check">
+          <input type="checkbox" [checked]="replay.auto()" (change)="replay.setAuto(checked($event))" />
+          <span>Replay every goal automatically</span>
+        </label>
+        <small class="muted">The build-up in slow motion, rebuilt from the event data. The match pauses for it and picks up after.</small>
+      </fieldset>
+
+      <fieldset class="sound">
         <legend>Sound</legend>
         <label class="check">
           <input type="checkbox" [checked]="sound.settings().enabled" (change)="sound.update({ enabled: checked($event) })" />
@@ -114,6 +124,7 @@ import { ViewerMode } from '../models';
 export class ViewerSettingsComponent {
   readonly live = inject(LiveService);
   readonly sound = inject(SoundService);
+  readonly replay = inject(ReplayService);
   readonly closed = output<void>();
   readonly profile = computed(() => this.live.profile());
 

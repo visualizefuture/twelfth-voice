@@ -36,6 +36,10 @@ export class SoundService {
   private noise: AudioBuffer | null = null;
   private readonly queue: QueuedLine[] = [];
   private speaking = false;
+  private voice: AudioBufferSourceNode | null = null;
+  private goalInProgress: Promise<void> | null = null;
+  /** Bumped on every goal, so commentary that was loading at the time is dropped. */
+  private generation = 0;
   private readonly spoken = new Set<string>();
 
   readonly settings = signal<SoundSettings>(loadSettings());
@@ -68,11 +72,8 @@ export class SoundService {
   stop(): void {
     this.queue.length = 0;
     this.spoken.clear();
-    try {
-      window.speechSynthesis?.cancel();
-    } catch {
-      // not supported
-    }
+    this.generation++;
+    this.stopVoice();
   }
 
   /** A new moment arrived live. */
@@ -138,17 +139,35 @@ export class SoundService {
 
   // ------------------------------------------------------------------ voice
 
+  /**
+   * One voice at a time. A goal call cuts off whatever commentary is playing and empties the
+   * queue; commentary waits until the goal call has finished.
+   */
   private async goalCall(insight: PersonalizedInsight, profile: ViewerProfile): Promise<void> {
     if (this.spoken.has(insight.insightId)) return;
     this.spoken.add(insight.insightId);
-    this.queue.length = 0; // a goal trumps anything waiting
+    this.generation++;
+    this.queue.length = 0;
+    this.stopVoice();
 
     const url = `/api/matches/${encodeURIComponent(insight.matchId)}/speech/${encodeURIComponent(insight.insightId)}/call`
       + `?language=${encodeURIComponent(profile.language)}`;
-    if (await this.playFromApi(url)) return;
-
-    // No cloud voice: the browser's own, with the word stretched out.
-    this.speakLocally(`Goooooaaaal! ${insight.headline.replace(/^GOAL!\s*/i, '')}`, profile.language, 1.25);
+    const done = (async () => {
+      const clip = await this.fetchClip(url);
+      if (clip) {
+        this.stopVoice(); // anything that slipped in while the call was loading
+        await this.play(clip);
+      } else {
+        // No cloud voice: the browser's own, with the word stretched out.
+        await this.speakLocally(`Gooooooooooooaaaaaaal! ${insight.headline.replace(/^GOAL!\s*/i, '')}`, profile.language, 1.25);
+      }
+    })();
+    this.goalInProgress = done;
+    try {
+      await done;
+    } finally {
+      if (this.goalInProgress === done) this.goalInProgress = null;
+    }
   }
 
   private enqueue(insight: PersonalizedInsight, profile: ViewerProfile): void {
@@ -163,60 +182,94 @@ export class SoundService {
     this.speaking = true;
     try {
       for (let next = this.queue.shift(); next; next = this.queue.shift()) {
+        while (this.goalInProgress) await this.goalInProgress;
         if (Date.now() - next.queuedAt > STALE_AFTER_MS || this.spoken.has(next.insightId)) continue;
         this.spoken.add(next.insightId);
         const p = next.profile;
         const params = new URLSearchParams({ mode: p.mode, language: p.language });
-        if (p.favoriteTeamId) params.set('favoriteTeamId', p.favoriteTeamId);
         if (p.focusPlayerId) params.set('focusPlayerId', p.focusPlayerId);
-        await this.playFromApi(`/api/matches/${encodeURIComponent(next.matchId)}/speech/${encodeURIComponent(next.insightId)}?${params}`);
+        if (p.favoriteTeamId) params.set('favoriteTeamId', p.favoriteTeamId);
+
+        const generation = this.generation;
+        const clip = await this.fetchClip(`/api/matches/${encodeURIComponent(next.matchId)}/speech/${encodeURIComponent(next.insightId)}?${params}`);
+        // A goal went in while this line was loading: the line is old news.
+        if (!clip || generation !== this.generation || this.goalInProgress || !this.settings().commentary) continue;
+        await this.play(clip);
       }
     } finally {
       this.speaking = false;
     }
   }
 
-  /** Fetches MP3 from the API and plays it to the end. False when the server has no voice. */
-  private async playFromApi(url: string): Promise<boolean> {
+  /** MP3 from the API, decoded. Null when the server has no voice or the request fails. */
+  private async fetchClip(url: string): Promise<AudioBuffer | null> {
     const ctx = this.context;
-    if (!ctx || !this.cloudVoice()) return false;
+    if (!ctx || !this.cloudVoice()) return null;
     try {
       const response = await fetch(url);
       if (response.status === 503) {
         this.cloudVoice.set(false);
-        return false;
+        return null;
       }
-      if (!response.ok || response.status === 204) return false;
-      const audio = await ctx.decodeAudioData(await response.arrayBuffer());
-      if (!this.settings().enabled) return true;
-
-      const source = ctx.createBufferSource();
-      source.buffer = audio;
-      const gain = ctx.createGain();
-      gain.gain.value = 1.4; // sit on top of the crowd
-      source.connect(gain).connect(ctx.destination);
-      await new Promise<void>(resolve => {
-        source.onended = () => resolve();
-        source.start();
-      });
-      return true;
+      if (!response.ok || response.status === 204) return null;
+      return await ctx.decodeAudioData(await response.arrayBuffer());
     } catch {
-      return false;
+      return null;
     }
   }
 
-  private speakLocally(text: string, language: string, pitch = 1): void {
+  /** Plays a clip on the single voice channel and resolves when it ends or is cut off. */
+  private play(clip: AudioBuffer): Promise<void> {
+    const ctx = this.context;
+    if (!ctx || !this.settings().enabled) return Promise.resolve();
+    this.stopVoice();
+    const source = ctx.createBufferSource();
+    source.buffer = clip;
+    const gain = ctx.createGain();
+    gain.gain.value = 1.4; // sit on top of the crowd
+    source.connect(gain).connect(ctx.destination);
+    this.voice = source;
+    return new Promise<void>(resolve => {
+      source.onended = () => {
+        if (this.voice === source) this.voice = null;
+        resolve();
+      };
+      source.start();
+    });
+  }
+
+  private stopVoice(): void {
+    const current = this.voice;
+    this.voice = null;
     try {
-      const synth = window.speechSynthesis;
-      if (!synth) return;
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = language;
-      utterance.rate = 0.95;
-      utterance.pitch = pitch;
-      synth.speak(utterance);
+      current?.stop();
+    } catch {
+      // already stopped
+    }
+    try {
+      window.speechSynthesis?.cancel();
     } catch {
       // not supported
     }
+  }
+
+  private speakLocally(text: string, language: string, pitch = 1): Promise<void> {
+    return new Promise<void>(resolve => {
+      try {
+        const synth = window.speechSynthesis;
+        if (!synth) return resolve();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = language;
+        utterance.rate = 0.9;
+        utterance.pitch = pitch;
+        utterance.onend = () => resolve();
+        utterance.onerror = () => resolve();
+        synth.speak(utterance);
+        setTimeout(resolve, 12_000); // never hold the queue forever
+      } catch {
+        resolve();
+      }
+    });
   }
 }
 

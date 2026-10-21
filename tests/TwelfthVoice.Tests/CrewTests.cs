@@ -355,6 +355,7 @@ public class SpeechTests
         Assert.Equal("es-ES", doc.Root!.Attribute(System.Xml.Linq.XNamespace.Xml + "lang")!.Value);
         Assert.Contains("es-ES-AlvaroNeural", ssml);
         Assert.Contains("Gol!", ssml);
+        Assert.Contains("Gooooooooooooool!", ssml);
         Assert.Contains("Harbourside 1, Ironvale 0", ssml);
         Assert.Contains("&lt;9&gt;", ssml);
     }
