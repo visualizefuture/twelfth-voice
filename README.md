@@ -46,6 +46,10 @@ dotnet run --project src/TwelfthVoice.Cli -- generate --home KIN --away WMC --se
 
 The same seed and teams always produce the same match, event for event, which makes demos and tests repeatable.
 
+## Run everything from Visual Studio
+
+Open `TwelfthVoice.sln`, pick **API + fan app** from the startup drop-down next to the Start button, and press **F5**. The API starts on port 5080 and the Angular app on port 4200, with a browser opening on the app. The first build runs `npm install` for the app, so it takes a minute.
+
 ## The AI broadcast crew
 
 Twelfth Voice uses **Microsoft Agent Framework** agents on a **Microsoft Foundry** model deployment. Each has one job:

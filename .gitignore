@@ -2,6 +2,7 @@
 bin/
 obj/
 *.user
+*.slnLaunch.user
 *.suo
 .vs/
 TestResults/
@@ -15,6 +16,7 @@ dist/
 # Editors and OS
 .vscode/*
 !.vscode/extensions.json
+!web/.vscode/launch.json
 .idea/
 .DS_Store
 Thumbs.db
