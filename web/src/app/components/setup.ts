@@ -4,6 +4,10 @@ import { ApiService } from '../api.service';
 import { LiveService } from '../live.service';
 import { MatchSummary, Team } from '../models';
 
+const CONNECT_ATTEMPTS = 20;
+const CONNECT_INTERVAL_MS = 1500;
+const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+
 /** Pick a fixture and kick off, or join a match that's already running. */
 @Component({
   selector: 'tv-setup',
@@ -56,9 +60,12 @@ import { MatchSummary, Team } from '../models';
           </label>
         </div>
 
-        <button class="primary kick" type="submit" [disabled]="busy() || homeId === awayId">
+        <button class="primary kick" type="submit" [disabled]="busy() || connecting() || teams().length === 0 || homeId === awayId">
           {{ busy() ? 'Starting…' : 'Kick off' }}
         </button>
+        @if (connecting()) {
+          <p class="muted" role="status">Connecting to the match server…</p>
+        }
         @if (error()) {
           <p class="error" role="alert">{{ error() }}</p>
         }
@@ -112,6 +119,7 @@ export class SetupComponent implements OnInit {
   readonly teams = signal<Team[]>([]);
   readonly liveMatches = signal<MatchSummary[]>([]);
   readonly busy = signal(false);
+  readonly connecting = signal(false);
   readonly error = signal<string | null>(null);
 
   homeId = 'HAR';
@@ -120,13 +128,22 @@ export class SetupComponent implements OnInit {
   speed = 60;
 
   async ngOnInit(): Promise<void> {
-    try {
-      this.teams.set(await this.api.teams());
-      const list = await this.api.matches();
-      this.liveMatches.set(list.live.filter(m => m.status !== 'Finished'));
-    } catch {
-      this.error.set('Can\'t reach the Twelfth Voice API. Start TwelfthVoice.Api (it listens on port 5080) and refresh.');
+    // The API may still be starting (F5 launches it alongside this app, and a cloud host may be
+    // waking up), so keep asking for a while before giving up.
+    this.connecting.set(true);
+    for (let attempt = 1; attempt <= CONNECT_ATTEMPTS; attempt++) {
+      try {
+        this.teams.set(await this.api.teams());
+        const list = await this.api.matches();
+        this.liveMatches.set(list.live.filter(m => m.status !== 'Finished'));
+        this.connecting.set(false);
+        return;
+      } catch {
+        if (attempt < CONNECT_ATTEMPTS) await delay(CONNECT_INTERVAL_MS);
+      }
     }
+    this.connecting.set(false);
+    this.error.set('Can\'t reach the Twelfth Voice API. Start TwelfthVoice.Api (it listens on port 5080) and refresh.');
   }
 
   async kickOff(): Promise<void> {
