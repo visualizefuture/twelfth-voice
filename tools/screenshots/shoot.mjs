@@ -17,7 +17,7 @@ const shot = async (name, locator) => {
 };
 
 await page.goto(base);
-await page.waitForSelector('form.fixture select[name="home"] option');
+await page.waitForSelector('form.fixture select[name="home"] option', { state: 'attached' });
 await page.waitForTimeout(800);
 await shot('01-fixtures');
 

@@ -41,7 +41,7 @@ jobs:
           ASPNETCORE_ENVIRONMENT: Production
         run: |
           dotnet build src/TwelfthVoice.Api -c Release
-          nohup dotnet run --project src/TwelfthVoice.Api -c Release --no-build --urls http://localhost:5080 > api.log 2>&1 &
+          nohup dotnet run --project src/TwelfthVoice.Api -c Release --no-build --no-launch-profile --urls http://localhost:5080 > api.log 2>&1 &
           for i in $(seq 1 60); do curl -sf http://localhost:5080/health && break; sleep 2; done
 
       - name: Take screenshots
