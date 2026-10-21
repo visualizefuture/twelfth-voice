@@ -23,10 +23,10 @@ await shot('01-fixtures');
 
 await page.selectOption('select[name="speed"]', { label: '120×' });
 await page.click('button.kick');
-await page.waitForSelector('.stage');
+await page.waitForSelector('tv-pitch-view .stage');
 await page.waitForTimeout(6000);
 await shot('02-stadium-live');
-await shot('02b-pitch-stadium', page.locator('.stage'));
+await shot('02b-pitch-stadium', page.locator('tv-pitch-view .stage'));
 
 // Wait for a goal (up to 90 s real time), capture the banner, then the automatic replay.
 try {
@@ -36,9 +36,9 @@ try {
   await page.waitForSelector('.replay-badge', { timeout: 15_000 });
   await page.waitForTimeout(2500);
   await shot('04-replay');
-  await shot('04b-replay-pitch', page.locator('.stage'));
+  await shot('04b-replay-pitch', page.locator('tv-pitch-view .stage'));
   await page.waitForTimeout(4000);
-  await shot('05-replay-late', page.locator('.stage'));
+  await shot('05-replay-late', page.locator('tv-pitch-view .stage'));
   await page.waitForSelector('.replay-badge', { state: 'detached', timeout: 30_000 });
 } catch (err) {
   console.log('no goal captured:', err.message);
