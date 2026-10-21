@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <Description>Live match API: runs matches, streams personalised insights over SignalR, stores everything in SQL.</Description>
+    <!-- Local secrets (Foundry key, endpoint): dotnet user-secrets set "AzureAI:ApiKey" "..." -->
+    <UserSecretsId>twelfth-voice-api-7c1e5b9a</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,6 +19,7 @@
     <ProjectReference Include="..\TwelfthVoice.Domain\TwelfthVoice.Domain.csproj" />
     <ProjectReference Include="..\TwelfthVoice.Simulator\TwelfthVoice.Simulator.csproj" />
     <ProjectReference Include="..\TwelfthVoice.Intelligence\TwelfthVoice.Intelligence.csproj" />
+    <ProjectReference Include="..\TwelfthVoice.Agents\TwelfthVoice.Agents.csproj" />
   </ItemGroup>
 
 </Project>

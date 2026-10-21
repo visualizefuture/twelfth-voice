@@ -108,6 +108,10 @@ export interface PersonalizedInsight {
   perspective: Perspective;
   aboutFocusPlayer: boolean;
   language: string;
+  /** 'rules' = written by code from the data; 'ai' = written by the broadcast crew and fact-checked. */
+  source?: 'rules' | 'ai';
+  verified?: boolean;
+  checks?: string[];
 }
 
 export interface TeamLine {
@@ -225,4 +229,23 @@ export interface CreateMatchRequest {
 export interface MatchList {
   live: MatchSummary[];
   stored: unknown[];
+}
+
+export interface AnalystAnswer {
+  question: string;
+  answer: string;
+  language: string;
+  verified: boolean;
+  fromAi: boolean;
+  toolsUsed: string[];
+  checks: string[];
+}
+
+export interface StoryRecap {
+  headline: string;
+  body: string;
+  language: string;
+  fromAi: boolean;
+  verified: boolean;
+  checks: string[];
 }

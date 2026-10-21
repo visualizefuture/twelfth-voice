@@ -63,9 +63,7 @@ import { ViewerMode } from '../models';
             <option [value]="l.code" [selected]="profile().language === l.code">{{ l.name }}</option>
           }
         </select>
-        @if (profile().language !== 'en') {
-          <small class="muted">Translated commentary arrives with the AI agents; for now the story stays in English.</small>
-        }
+        <small class="muted">The AI crew translates commentary and answers, then re-checks every number.</small>
       </label>
     </aside>
   `,

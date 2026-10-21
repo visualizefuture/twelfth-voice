@@ -1,3 +1,4 @@
+using TwelfthVoice.Agents;
 using TwelfthVoice.Api.Live;
 using TwelfthVoice.Api.Storage;
 using TwelfthVoice.Domain;
@@ -91,7 +92,7 @@ public static class ApiEndpoints
             .WithSummary("Full team and player statistics so far.");
 
         matches.MapGet("/{matchId}/insights",
-                (string matchId, string? mode, string? favoriteTeamId, string? focusPlayerId, string? language, int? take, MatchRegistry registry) =>
+                (string matchId, string? mode, string? favoriteTeamId, string? focusPlayerId, string? language, int? take, MatchRegistry registry, BroadcastCrew crew) =>
                     WithSession(registry, matchId, s =>
                     {
                         var profile = new ViewerProfile
@@ -101,7 +102,7 @@ public static class ApiEndpoints
                             FocusPlayerId = focusPlayerId?.ToUpperInvariant(),
                             Language = string.IsNullOrWhiteSpace(language) ? "en" : language
                         };
-                        var insights = InsightPersonalizer.ForViewer(profile, s.Insights());
+                        var insights = crew.ApplyCached(InsightPersonalizer.ForViewer(profile, s.Insights()), profile);
                         int count = Math.Clamp(take ?? 50, 1, 500);
                         return Results.Ok(insights.Skip(Math.Max(0, insights.Count - count)));
                     }))
@@ -130,6 +131,24 @@ public static class ApiEndpoints
             .WithName("GetRecap")
             .WithSummary("Automated recap (final once the match has finished).");
 
+        matches.MapGet("/{matchId}/story", async (string matchId, string? mode, string? language, MatchRegistry registry, MatchAnalyst analyst, CancellationToken ct) =>
+            {
+                if (registry.Get(matchId) is not { } session) return Results.NotFound(new { error = $"Match '{matchId}' was not found." });
+                var viewerMode = string.Equals(mode, "analyst", StringComparison.OrdinalIgnoreCase) ? ViewerMode.Analyst : ViewerMode.Casual;
+                return Results.Ok(await analyst.StoryAsync(session.Recap(), viewerMode, language, ct));
+            })
+            .WithName("GetStory")
+            .WithSummary("The match story written by the Storyteller agent from the verified recap, fact-checked and translated.");
+
+        matches.MapPost("/{matchId}/ask", async (string matchId, AskRequest request, MatchRegistry registry, MatchAnalyst analyst, CancellationToken ct) =>
+            {
+                if (registry.Get(matchId) is not { } session) return Results.NotFound(new { error = $"Match '{matchId}' was not found." });
+                if (string.IsNullOrWhiteSpace(request.Question)) return Results.BadRequest(new { error = "Ask a question about the match." });
+                return Results.Ok(await analyst.AskAsync(session, request, ct));
+            })
+            .WithName("AskTheMatch")
+            .WithSummary("Ask the Analyst agent a question; it looks up the live data with tools and its numbers are checked.");
+
         // ---------------------------------------------------------------- viewer profiles
         var profiles = api.MapGroup("/profiles");
 
@@ -149,10 +168,11 @@ public static class ApiEndpoints
             .WithName("GetProfile");
 
         // ---------------------------------------------------------------- status
-        api.MapGet("/status", (MatchRegistry registry, IMatchStore store, StorageState storage) => Results.Ok(new
+        api.MapGet("/status", (MatchRegistry registry, IMatchStore store, StorageState storage, BroadcastCrew crew) => Results.Ok(new
             {
                 service = "Twelfth Voice",
                 storage = store.Mode,
+                crew = new { usage = crew.Usage, stats = crew.Stats },
                 storageError = storage.LastError,
                 liveMatches = registry.All.Count(s => s.Status is MatchStatus.Live or MatchStatus.Paused)
             }))

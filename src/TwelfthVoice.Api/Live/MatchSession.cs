@@ -1,3 +1,4 @@
+using TwelfthVoice.Agents;
 using TwelfthVoice.Api.Storage;
 using TwelfthVoice.Domain;
 using TwelfthVoice.Intelligence;
@@ -10,7 +11,7 @@ namespace TwelfthVoice.Api.Live;
 /// <see cref="Speed"/>), runs them through the <see cref="MatchAnalyzer"/>, then hands the
 /// results to the broadcaster and the store. Supports pause, resume and speed changes mid-match.
 /// </summary>
-public sealed class MatchSession
+public sealed class MatchSession : IMatchData
 {
     /// <summary>At or above this speed, events are released without any delay (tests, fast-forward).</summary>
     public const double InstantSpeed = 10_000;
@@ -136,6 +137,9 @@ public sealed class MatchSession
     {
         lock (_gate) return _timeline.ToList();
     }
+
+    public IReadOnlyList<MomentumSample> Momentum() =>
+        Timeline().Select(p => new MomentumSample(p.Period, p.MatchSecond, p.Clock, p.Momentum, p.ControlIndex, p.HomeScore, p.AwayScore)).ToList();
 
     public MatchRecap Recap()
     {

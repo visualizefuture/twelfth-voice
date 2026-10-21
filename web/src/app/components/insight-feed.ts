@@ -21,6 +21,13 @@ import { PersonalizedInsight } from '../models';
               @if (item.analystNote) {
                 <p class="note">{{ item.analystNote }}</p>
               }
+              @if (item.source === 'ai') {
+                <p class="crew" [attr.title]="(item.checks ?? []).join('. ')">
+                  <span class="tick" aria-hidden="true">✓</span> Written by the AI crew, fact-checked{{ item.language !== 'en' ? ', translated' : '' }}
+                </p>
+              } @else if (item.language !== 'en') {
+                <p class="crew" [attr.title]="(item.checks ?? []).join('. ')">Translated by the AI crew, numbers re-checked</p>
+              }
             </div>
           </li>
         }
@@ -37,6 +44,8 @@ import { PersonalizedInsight } from '../models';
     strong { font-weight: 600; }
     p { margin: 3px 0 0; font-size: var(--step--1); color: var(--moss); max-width: 60ch; }
     .note { color: var(--chalk); opacity: 0.7; }
+    .crew { font-size: 0.75rem; color: var(--floodlight); opacity: 0.85; margin-top: 5px; }
+    .tick { font-weight: 700; }
     li.goal { border-left-color: var(--floodlight); }
     li.goal strong { color: var(--floodlight); }
     li.card { border-left-color: var(--red-card); }

@@ -32,6 +32,8 @@ export class LiveService {
   private connection: HubConnection | null = null;
   private readonly overlayTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private seenSequences = new Set<number>();
+  /** Crew rewrites for the current view, kept so a feed rebuild doesn't lose ones that arrived first. */
+  private crewLines = new Map<string, PersonalizedInsight>();
 
   readonly info = signal<MatchInfo | null>(null);
   readonly summary = signal<MatchSummary | null>(null);
@@ -83,6 +85,7 @@ export class LiveService {
     const next: ViewerProfile = { ...this.profile(), ...changes };
     this.profile.set(next);
     saveProfile(next);
+    this.crewLines.clear();
 
     const matchId = this.matchId();
     if (!matchId || this.connection?.state !== HubConnectionState.Connected) return;
@@ -91,7 +94,7 @@ export class LiveService {
     this.state.set(state);
     // Rebuild the feed so it reflects the new viewpoint straight away.
     const insights = await this.api.insights(matchId, next, MAX_INSIGHTS);
-    this.insights.set([...insights].reverse());
+    this.insights.set([...insights].reverse().map(i => this.crewLines.get(i.insightId) ?? i));
   }
 
   async pause(): Promise<void> {
@@ -122,6 +125,7 @@ export class LiveService {
         .build();
 
       connection.on('insight', (insight: PersonalizedInsight) => this.onInsight(insight));
+      connection.on('insightUpdate', (insight: PersonalizedInsight) => this.onInsightUpdate(insight));
       connection.on('state', (state: LiveState) => this.onState(state));
       connection.on('status', (summary: MatchSummary) => this.summary.set(summary));
       connection.on('event', (e: MatchEvent) => this.onEvent(e));
@@ -156,6 +160,13 @@ export class LiveService {
   private onInsight(insight: PersonalizedInsight): void {
     this.insights.update(list => [insight, ...list].slice(0, MAX_INSIGHTS));
     this.showOverlay(insight);
+  }
+
+  /** The broadcast crew's fact-checked (and possibly translated) rewrite of a line already on screen. */
+  private onInsightUpdate(insight: PersonalizedInsight): void {
+    this.crewLines.set(insight.insightId, insight);
+    this.insights.update(list => list.map(i => (i.insightId === insight.insightId ? insight : i)));
+    this.overlays.update(list => list.map(o => (o.id === insight.insightId ? { ...o, insight } : o)));
   }
 
   private onState(state: LiveState): void {
@@ -231,6 +242,7 @@ export class LiveService {
     for (const timer of this.overlayTimers.values()) clearTimeout(timer);
     this.overlayTimers.clear();
     this.seenSequences = new Set<number>();
+    this.crewLines.clear();
     this.summary.set(null);
     this.state.set(null);
     this.insights.set([]);
