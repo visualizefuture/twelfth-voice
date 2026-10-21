@@ -1,4 +1,5 @@
-import { Component, HostListener, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, HostListener, computed, effect, inject, signal, untracked } from '@angular/core';
+import { LIFT_PER_METRE, ease, flightFor, flightPath, groundPath, pointAt } from '../ballflight';
 import { playerTokens } from '../formation';
 import { kitFor } from '../kits';
 import { LiveService } from '../live.service';
@@ -65,20 +66,19 @@ const TRAIL_LENGTH = 6;
         @for (light of floodlights; track light) {
           <div class="tower" [class]="'tower ' + light" aria-hidden="true"><i></i></div>
         }
-        <!-- goal: the scoring club's fans unfurl a giant tifo across the far stand, and confetti falls -->
-        @if (celebration(); as c) {
-          <div class="tifo" [class.from-left]="c.home" [style.--a]="c.a" [style.--b]="c.b" aria-hidden="true">
-            <tv-crest class="tifo-crest" [team]="c.team" [size]="96" />
-            <span class="tag-text">{{ c.word }}</span>
-            <span class="tag-sub">{{ c.scorer }}</span>
-          </div>
-          <div class="confetti" aria-hidden="true">
-            @for (bit of confetti; track $index) {
-              <i [style.left.%]="bit.left" [style.animation-delay.s]="bit.delay" [style.animation-duration.s]="bit.duration"
-                 [style.background]="$index % 3 === 0 ? c.b : c.a" [style.width.px]="bit.size" [style.height.px]="bit.size * 1.6"></i>
-            }
-          </div>
-        }
+      }
+
+      <!-- goal: confetti thrown up from the stands, in the scoring club's colours -->
+      @if (celebration(); as c) {
+        <div class="confetti" aria-hidden="true">
+          @for (bit of confetti; track $index) {
+            <i [style.left.%]="bit.x" [style.top.%]="bit.y" [style.--dx]="bit.dx + 'px'" [style.--up]="bit.up + 'px'" [style.--fall]="bit.fall + 'px'"
+               [style.animation-delay.s]="bit.delay" [style.animation-duration.s]="bit.duration">
+              <b [class]="'bit ' + bit.shape" [style.background]="bit.tone === 0 ? c.a : bit.tone === 1 ? c.b : bit.tone === 2 ? '#ffffff' : '#f6c445'"
+                 [style.animation-duration.s]="bit.flutter" [style.--spin]="bit.spin + 'deg'"></b>
+            </i>
+          }
+        </div>
       }
 
       <div class="camera-rig">
@@ -88,8 +88,14 @@ const TRAIL_LENGTH = 6;
             <div class="boards far" aria-hidden="true">
               @for (b of boards; track $index) { <span>{{ b }}</span> }
             </div>
-            <div class="goal-frame left" aria-hidden="true"></div>
-            <div class="goal-frame right" aria-hidden="true"></div>
+          }
+          <!-- goals: posts, crossbar and net; stood up in 3D in the stadium, seen from above on the tactical board -->
+          @for (side of goalSides; track side) {
+            <div [class]="'goal ' + side" aria-hidden="true">
+              <i class="net-side near"></i>
+              <i class="net-side far"></i>
+              <i class="net-top"><i class="net-back"></i></i>
+            </div>
           }
           <svg [attr.viewBox]="viewBox" preserveAspectRatio="none" aria-hidden="true">
             <defs>
@@ -153,18 +159,21 @@ const TRAIL_LENGTH = 6;
                   <polyline [attr.points]="trailPoints()" class="trail" />
                 }
                 <!-- the current action -->
-                @if (actionLine(); as line) {
-                  <line [attr.x1]="line.from.x" [attr.y1]="line.from.y" [attr.x2]="line.to.x" [attr.y2]="line.to.y"
-                        [class]="'action ' + line.kind" marker-end="url(#arrow)" />
+                @if (flightLines(); as f) {
+                  @if (f.lofted) {
+                    <path [attr.d]="f.ground" class="ground-track" />
+                  }
+                  <path [attr.d]="f.air" [class]="'action ' + f.kind" marker-end="url(#arrow)" />
                 }
                 <!-- a pass the insight engine flagged as special -->
                 @if (!replay.active() && highlightPass(); as pass) {
                   <line [attr.x1]="pass.from.x" [attr.y1]="pass.from.y" [attr.x2]="pass.to.x" [attr.y2]="pass.to.y"
                         class="highlight" marker-end="url(#arrow)" />
                 }
-                @if (ball(); as b) {
-                  <g class="ball" [style.transform]="'translate(' + b.x + 'px,' + b.y + 'px)'">
-                    <ellipse rx="1.1" ry="0.55" cy="0.5" class="ball-shadow" />
+                @if (ballState(); as b) {
+                  <ellipse [attr.cx]="b.gx" [attr.cy]="b.gy + 0.4" [attr.rx]="1.1 * b.shadow" [attr.ry]="0.55 * b.shadow"
+                           class="ball-shadow" [attr.fill-opacity]="0.45 * b.shadow" />
+                  <g [attr.transform]="'translate(' + b.x + ' ' + b.y + ') scale(' + b.scale + ')'">
                     <circle r="1.6" class="ball-glow" />
                     <circle r="0.85" class="ball-core" />
                   </g>
@@ -283,7 +292,9 @@ const TRAIL_LENGTH = 6;
     .direction { margin-left: auto; font-size: var(--step--1); }
 
     /* ---------- stage: flat (tactical) by default ---------- */
-    .stage { position: relative; width: 100%; aspect-ratio: 105 / 68; border-radius: 4px; overflow: hidden; --tilt: 0deg; }
+    .stage:not(.stadium) .camera-rig { inset: 0 1.8%; }
+    .stage:not(.stadium) { background: var(--night-2); }
+    .stage { position: relative; width: 100%; aspect-ratio: 109 / 68; border-radius: 4px; overflow: hidden; --tilt: 0deg; }
     .camera-rig { position: absolute; inset: 0; }
     .pitch { position: absolute; inset: 0; }
     .hud { position: absolute; inset: 0; pointer-events: none; z-index: 6; }
@@ -302,12 +313,32 @@ const TRAIL_LENGTH = 6;
     .shot.goal { fill: var(--floodlight); stroke: var(--floodlight); }
     .shot.saved.home { fill: var(--home); fill-opacity: 0.35; }
     .shot.saved.away { fill: var(--away); fill-opacity: 0.35; }
+    .ground-track { fill: none; stroke: #000; stroke-opacity: 0.28; stroke-width: 0.35; stroke-dasharray: 0.6 0.9; }
+    .ball-shadow { fill: #000; }
+
+    /* ---------- goals (tactical: from above, outside the goal line) ---------- */
+    .goal {
+      position: absolute; top: calc(50% - 5.38%); height: 10.76%; width: 1.9%; z-index: 1;
+      border: 2px solid #f4f6f8; box-shadow: 0 0 4px rgb(0 0 0 / 0.5);
+      background:
+        repeating-linear-gradient(0deg, rgb(255 255 255 / 0.35) 0 1px, transparent 1px 5px),
+        repeating-linear-gradient(90deg, rgb(255 255 255 / 0.35) 0 1px, transparent 1px 5px),
+        rgb(0 0 0 / 0.25);
+    }
+    .goal.left { left: -1.9%; border-right: 0; }
+    .goal.right { right: -1.9%; border-left: 0; }
+    .goal::before, .goal::after {
+      content: ''; position: absolute; width: 5px; height: 5px; border-radius: 50%; background: #fff; box-shadow: 0 0 3px #000;
+    }
+    .goal.left::before { right: -3px; top: -4px; } .goal.left::after { right: -3px; bottom: -4px; }
+    .goal.right::before { left: -3px; top: -4px; } .goal.right::after { left: -3px; bottom: -4px; }
+    .goal > i { display: none; }
+
     .trail { fill: none; stroke: var(--chalk); stroke-opacity: 0.25; stroke-width: 0.35; stroke-dasharray: 0.8 0.8; }
     .action { stroke-width: 0.4; stroke: var(--chalk); stroke-opacity: 0.8; }
     .action.fail { stroke: var(--red-card); stroke-dasharray: 1 0.8; }
     .action.shot { stroke: var(--floodlight); stroke-width: 0.5; }
     .highlight { stroke: var(--floodlight); stroke-width: 0.6; }
-    .ball { transition: transform 0.45s ease-out; }
     .ball-shadow { fill: #000; fill-opacity: 0; }
     .ball-glow { fill: var(--floodlight); fill-opacity: 0.25; }
     .ball-core { fill: #ffffff; }
@@ -339,7 +370,6 @@ const TRAIL_LENGTH = 6;
       border: 1px solid; font: 700 10px/11px var(--display); text-align: center; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
     }
     .replaying .token { transition-duration: 0.8s; transition-timing-function: ease-in-out; }
-    .replaying .ball { transition-duration: 0.8s; transition-timing-function: ease-in-out; }
     .replaying .tag { transition-duration: 0.8s; }
 
     .rail { display: grid; gap: 8px; margin-top: 10px; min-height: 78px; align-content: start; }
@@ -356,40 +386,24 @@ const TRAIL_LENGTH = 6;
     .card.goal strong { color: var(--floodlight); font-size: var(--step-2); }
     .card.idle { border-left-color: var(--hairline); font-size: var(--step--1); }
 
-    .tifo {
-      position: absolute; left: 6%; right: 6%; top: 9%; height: 23%; z-index: 2; overflow: hidden;
-      display: flex; align-items: center; justify-content: center; gap: 3%;
-      background: repeating-linear-gradient(90deg, var(--a) 0 9%, var(--b) 9% 12%);
-      box-shadow: inset 0 0 40px rgb(0 0 0 / 0.45);
-      transform-origin: 100% 50%; animation: unfurl 0.9s cubic-bezier(.2,.8,.2,1) both, ripple-tifo 2.4s ease-in-out 0.9s infinite;
-      /* a crowd-held cloth: slightly uneven edges */
-      clip-path: polygon(0 4%, 12% 0, 30% 3%, 50% 0, 70% 4%, 88% 1%, 100% 3%, 100% 97%, 85% 100%, 64% 96%, 45% 100%, 25% 97%, 0 100%);
-    }
-    .tifo.from-left { transform-origin: 0 50%; }
-    .tifo::after {
-      content: ''; position: absolute; inset: 0; pointer-events: none;
-      background: repeating-linear-gradient(90deg, rgb(0 0 0 / 0.18) 0, rgb(255 255 255 / 0.10) 6%, rgb(0 0 0 / 0.18) 12%);
-      background-size: 200% 100%; mix-blend-mode: soft-light; animation: folds 1.4s linear infinite;
-    }
-    .tifo-crest { filter: drop-shadow(0 4px 8px rgb(0 0 0 / 0.5)); }
-    .tifo .tag-text {
-      font-family: 'Permanent Marker', var(--display); font-size: clamp(28px, 6.5vw, 92px); line-height: 1; color: #fff;
-      transform: rotate(-4deg); letter-spacing: 0.02em;
-      text-shadow: 3px 3px 0 rgb(0 0 0 / 0.65), -2px -2px 0 var(--b), 0 0 24px rgb(255 255 255 / 0.25);
-      -webkit-text-stroke: 2px rgb(0 0 0 / 0.55);
-    }
-    .tifo .tag-sub {
-      font-family: 'Permanent Marker', var(--display); font-size: clamp(14px, 2.2vw, 30px); color: #fff; transform: rotate(-3deg);
-      text-shadow: 2px 2px 0 rgb(0 0 0 / 0.6);
-    }
-    @keyframes unfurl { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-    @keyframes ripple-tifo { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.12); } }
-    @keyframes folds { to { background-position: -200% 0; } }
     .confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 5; }
-    .confetti i { position: absolute; top: -4%; border-radius: 1px; opacity: 0.95; animation: fall linear both; }
-    @keyframes fall {
-      0% { transform: translateY(0) rotate(0deg); }
-      100% { transform: translateY(1000px) rotate(540deg); opacity: 0.7; }
+    /* the outer piece is thrown up and drifts down; the inner one flutters */
+    .confetti > i {
+      position: absolute; width: 0; height: 0; animation-name: toss; animation-timing-function: linear; animation-fill-mode: both;
+    }
+    .confetti .bit { position: absolute; display: block; animation: flutter ease-in-out infinite alternate; opacity: 0.95; }
+    .confetti .strip { width: 4px; height: 11px; border-radius: 1px; }
+    .confetti .square { width: 7px; height: 7px; }
+    .confetti .dot { width: 6px; height: 6px; border-radius: 50%; }
+    @keyframes toss {
+      0% { transform: translate(0, 0); opacity: 0; animation-timing-function: cubic-bezier(.2,.7,.4,1); }
+      6% { opacity: 1; }
+      28% { transform: translate(calc(var(--dx) * 0.35), calc(var(--up) * -1)); animation-timing-function: cubic-bezier(.4,0,.8,.6); }
+      100% { transform: translate(var(--dx), var(--fall)); opacity: 0.85; }
+    }
+    @keyframes flutter {
+      0% { transform: rotate(0deg) rotateX(0deg) translateX(-3px); }
+      100% { transform: rotate(var(--spin)) rotateX(320deg) translateX(3px); }
     }
 
     .layer-note { position: absolute; left: 12px; bottom: 10px; font-size: var(--step--1); background: var(--night-2); padding: 4px 10px; }
@@ -490,15 +504,32 @@ const TRAIL_LENGTH = 6;
       color: #cfe6ff; border-left: 1px solid #23364d;
     }
     .stadium .boards span:nth-child(odd) { color: var(--floodlight); }
-    .stadium .goal-frame {
-      position: absolute; top: calc(50% - 5.4%); height: 10.8%; width: 2.6%;
-      border: 2px solid #f4f6f8; box-shadow: 0 0 6px rgb(0 0 0 / 0.5);
-      background: repeating-linear-gradient(45deg, rgb(255 255 255 / 0.25) 0 2px, transparent 2px 6px);
-    }
-    .stadium .goal-frame.left { left: -2.6%; border-right: 0; }
-    .stadium .goal-frame.right { right: -2.6%; border-left: 0; }
     .stadium .lines { stroke-opacity: 0.85; stroke-width: 0.35; }
-    .stadium .ball-shadow { fill-opacity: 0.45; }
+    /* goals stand up in 3D: the face (posts and crossbar) rises from the goal line, nets fold back from it */
+    .stadium .goal {
+      top: calc(50% - 5.38%); height: 10.76%; width: 3.8%; border: 0; box-shadow: none; background: none;
+      transform-style: preserve-3d; z-index: 3;
+    }
+    .stadium .goal::before, .stadium .goal::after { display: none; }
+    .stadium .goal.left { left: 0; transform-origin: 0 50%; transform: rotateY(-90deg); }
+    .stadium .goal.right { right: 0; left: auto; transform-origin: 100% 50%; transform: rotateY(90deg); }
+    /* posts = the face's long edges, crossbar = its far edge */
+    .stadium .goal.left { border-top: 3px solid #fff; border-bottom: 3px solid #fff; border-right: 3px solid #fff; }
+    .stadium .goal.right { border-top: 3px solid #fff; border-bottom: 3px solid #fff; border-left: 3px solid #fff; }
+    .stadium .goal > i, .stadium .net-top > i { display: block; position: absolute; transform-style: preserve-3d; }
+    .stadium .net-side, .stadium .net-top, .stadium .net-back {
+      background:
+        repeating-linear-gradient(0deg, rgb(255 255 255 / 0.55) 0 1px, transparent 1px 4px),
+        repeating-linear-gradient(90deg, rgb(255 255 255 / 0.55) 0 1px, transparent 1px 4px);
+      outline: 1px solid rgb(255 255 255 / 0.5);
+    }
+    .stadium .net-side { left: 0; width: 100%; height: 26%; transform-origin: 50% 0; transform: rotateX(90deg); }
+    .stadium .net-side.near { top: 100%; }
+    .stadium .net-side.far { top: 0; }
+    .stadium .goal.left .net-top { left: 100%; top: 0; height: 100%; width: 50%; transform-origin: 0 50%; transform: rotateY(-90deg); }
+    .stadium .goal.right .net-top { right: 100%; top: 0; height: 100%; width: 50%; transform-origin: 100% 50%; transform: rotateY(90deg); }
+    .stadium .goal.left .net-back { left: 100%; top: 0; height: 100%; width: 200%; transform-origin: 0 50%; transform: rotateY(-90deg); }
+    .stadium .goal.right .net-back { right: 100%; top: 0; height: 100%; width: 200%; transform-origin: 100% 50%; transform: rotateY(90deg); }
     .stadium .token { transform-style: preserve-3d; }
     .stadium .token .figure {
       transform-origin: 50% 100%; top: -24px;
@@ -529,7 +560,6 @@ const TRAIL_LENGTH = 6;
     @media (prefers-reduced-motion: reduce) {
       .token, .ball, .tag, .replay-progress i { transition: none !important; }
       .replay-badge .dot { animation: none; }
-      .tifo, .tifo::after { animation: none; }
       .confetti { display: none; }
     }
   `
@@ -557,6 +587,44 @@ export class PitchViewComponent {
     };
   });
 
+  constructor() {
+    // Fly the ball along each new action's path.
+    effect(() => {
+      const action = this.action();
+      const home = this.homeId();
+      const slow = !!this.replay.active();
+      untracked(() => this.fly(action, home, slow));
+    });
+    inject(DestroyRef).onDestroy(() => cancelAnimationFrame(this.frame));
+  }
+
+  private fly(action: MatchEvent | null, homeId: string, slow: boolean): void {
+    cancelAnimationFrame(this.frame);
+    const end = action ? ballPosition(action, homeId) : null;
+    if (!end) {
+      this.ballState.set(null);
+      return;
+    }
+    const at = (x: number, y: number, height: number) => ({
+      x, y: y - height * LIFT_PER_METRE, gx: x, gy: y, scale: 1 + height / 5, shadow: 1 / (1 + height / 4)
+    });
+    const flight = flightFor(action, homeId);
+    const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!flight || reduced) {
+      this.ballState.set(at(end.x, end.y, 0));
+      return;
+    }
+    const duration = flight.ms * (slow ? 1.5 : 1);
+    const started = performance.now();
+    const step = (now: number) => {
+      const t = Math.min(1, (now - started) / duration);
+      const { ground, height } = pointAt(flight, ease(t));
+      this.ballState.set(at(ground.x, ground.y, height));
+      if (t < 1) this.frame = requestAnimationFrame(step);
+    };
+    this.frame = requestAnimationFrame(step);
+  }
+
   /** Short headline chips stay on the pitch's top edge; everything with a body goes in the rail below. */
   readonly chips = computed(() => this.live.overlays().filter(o => o.placement === 'top-bar' || o.placement === 'top-right'));
 
@@ -581,26 +649,53 @@ export class PitchViewComponent {
     const team = goal ? this.scoringTeam(goal.insight) : null;
     if (!goal || !team) return null;
     const kit = team.matchKit;
-    const info = this.live.info();
-    const scorerId = goal.insight.playerIds[0];
-    const scorer = scorerId ? this.live.players().get(scorerId)?.player : undefined;
     return {
       team,
-      home: team.id === info?.home.id,
       a: kit?.shirt ?? team.primaryColor,
       b: kit?.trim ?? team.secondaryColor,
-      word: GOAL_WORDS[this.live.profile().language] ?? 'GOOOAL!',
-      scorer: scorer ? `${scorer.shortName} ${scorer.shirtNumber}` : team.shortName
     };
   });
 
-  /** Confetti pieces, fixed per session so they don't reshuffle on every render. */
-  readonly confetti = Array.from({ length: 46 }, (_, i) => ({
-    left: (i * 37) % 100 + ((i * 13) % 7) / 7,
-    delay: ((i * 17) % 20) / 10,
-    duration: 3 + ((i * 7) % 10) / 4,
-    size: 5 + (i % 4) * 2
-  }));
+  readonly goalSides = ['left', 'right'];
+
+  /**
+   * Confetti thrown up from the stands: each piece starts in a stand, flies up, then drifts down
+   * across the stadium while fluttering. Fixed per session so it doesn't reshuffle on every render.
+   */
+  readonly confetti = Array.from({ length: 140 }, (_, i) => {
+    const r = (n: number) => ((Math.sin((i + 1) * 12.9898 + n * 78.233) * 43758.5453) % 1 + 1) % 1;
+    const stand = i % 4; // 0 far stand, 1 left, 2 right, 3 far stand again
+    const x = stand === 1 ? 2 + r(1) * 20 : stand === 2 ? 78 + r(1) * 20 : 6 + r(1) * 88;
+    const y = stand === 1 || stand === 2 ? 30 + r(2) * 60 : 10 + r(2) * 20;
+    const shapes = ['strip', 'strip', 'square', 'dot'];
+    return {
+      x, y,
+      dx: (stand === 1 ? 1 : stand === 2 ? -1 : r(3) < 0.5 ? -1 : 1) * (30 + r(4) * 160),
+      up: 60 + r(5) * 170,
+      fall: 260 + r(6) * 520,
+      delay: (i % 2) * 1.1 + r(7) * 1.4,
+      duration: 3.6 + r(8) * 2.6,
+      flutter: 0.35 + r(9) * 0.5,
+      spin: 180 + r(10) * 540,
+      tone: Math.floor(r(11) * 4),
+      shape: shapes[Math.floor(r(12) * shapes.length)]
+    };
+  });
+
+  /** The kick drawn as it travels: bent along the grass and, for long balls, up in the air. */
+  readonly flightLines = computed(() => {
+    const f = flightFor(this.action(), this.homeId());
+    if (!f || f.kind === 'carry') {
+      const e = this.action();
+      if (!f || !e?.start || !e.end) return null;
+      return { air: flightPath(f, 2), ground: '', lofted: false, kind: f.kind === 'carry' ? 'ok' : f.kind };
+    }
+    return { air: flightPath(f), ground: groundPath(f), lofted: f.height > 1, kind: f.kind };
+  });
+
+  /** The ball as drawn this frame: its shadow on the grass, and the ball lifted and scaled by its height. */
+  readonly ballState = signal<{ x: number; y: number; gx: number; gy: number; scale: number; shadow: number } | null>(null);
+  private frame = 0;
 
   /** What the pitch shows: the replay frame when a replay is rolling, otherwise the live action. */
   private readonly action = computed(() => this.replay.frame() ?? this.live.lastAction());
@@ -682,13 +777,6 @@ export class PitchViewComponent {
     return e ? ballPosition(e, this.homeId()) : null;
   });
 
-  readonly actionLine = computed(() => {
-    const e = this.action();
-    if (!e?.start || !e.end || !['Pass', 'Carry', 'Shot', 'Dribble'].includes(e.type)) return null;
-    const home = this.homeId();
-    const kind = e.type === 'Shot' ? 'shot' : e.outcome === 'Fail' ? 'fail' : 'ok';
-    return { from: toScreen(e.start, e.teamId, home), to: toScreen(e.end, e.teamId, home), kind };
-  });
 
   /** If a "pass of note" graphic is showing, draw that pass. */
   readonly highlightPass = computed(() => {
@@ -835,7 +923,3 @@ function loadCamera(): Camera {
   }
 }
 
-const GOAL_WORDS: Record<string, string> = {
-  en: 'GOOOAL!', es: '¡GOOOL!', pt: 'GOOOL!', it: 'GOOOL!', fr: 'BUUUT !', de: 'TOOOR!',
-  ar: 'هدف!', hi: 'गोल!', ja: 'ゴール!'
-};
