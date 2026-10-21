@@ -5,6 +5,7 @@ using TwelfthVoice.Api.Endpoints;
 using TwelfthVoice.Api.Hubs;
 using TwelfthVoice.Api.Live;
 using TwelfthVoice.Api.Mcp;
+using TwelfthVoice.Api.Speech;
 using TwelfthVoice.Api.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -42,6 +43,15 @@ builder.Services.AddSingleton<BroadcastCrew>();
 builder.Services.AddSingleton<MatchAnalyst>();
 builder.Services.AddSingleton<CrewDispatcher>();
 
+// Azure AI Speech for the goal call and spoken commentary. Without a key the app stays silent.
+var speechOptions = builder.Configuration.GetSection(SpeechOptions.SectionName).Get<SpeechOptions>() ?? new SpeechOptions();
+builder.Services.AddSingleton(speechOptions);
+builder.Services.AddHttpClient("speech");
+builder.Services.AddSingleton(sp => new SpeechService(
+    speechOptions,
+    sp.GetRequiredService<IHttpClientFactory>().CreateClient("speech"),
+    sp.GetRequiredService<ILogger<SpeechService>>()));
+
 builder.Services.AddSingleton<ViewerConnections>();
 builder.Services.AddSingleton<IMatchBroadcaster, SignalRBroadcaster>();
 builder.Services.AddSingleton<MatchRegistry>();
@@ -64,6 +74,7 @@ app.UseStaticFiles();
 app.MapOpenApi();
 app.MapHealthChecks("/health");
 app.MapTwelfthVoiceApi();
+app.MapSpeechApi();
 app.MapHub<MatchHub>("/hubs/match");
 if (mcpEnabled) app.MapMcp("/mcp");
 

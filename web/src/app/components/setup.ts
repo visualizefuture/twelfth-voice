@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../api.service';
 import { asAwayTeam } from '../kits';
 import { LiveService } from '../live.service';
+import { SoundService } from '../sound.service';
 import { CrestComponent } from './crest';
 import { LineupCardComponent } from './lineup-card';
 import { MatchSummary, Team } from '../models';
@@ -136,6 +137,7 @@ const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, m
 export class SetupComponent implements OnInit {
   private readonly api = inject(ApiService);
   readonly live = inject(LiveService);
+  private readonly sound = inject(SoundService);
 
   readonly teams = signal<Team[]>([]);
   readonly liveMatches = signal<MatchSummary[]>([]);
@@ -173,6 +175,7 @@ export class SetupComponent implements OnInit {
   }
 
   async kickOff(): Promise<void> {
+    this.sound.unlock(); // browsers only allow audio that starts from a click
     this.busy.set(true);
     this.error.set(null);
     try {
@@ -186,6 +189,7 @@ export class SetupComponent implements OnInit {
   }
 
   async watch(matchId: string): Promise<void> {
+    this.sound.unlock();
     this.busy.set(true);
     try {
       await this.live.join(matchId);

@@ -1,5 +1,6 @@
 import { Component, computed, inject, output } from '@angular/core';
 import { LiveService } from '../live.service';
+import { SoundService } from '../sound.service';
 import { ViewerMode } from '../models';
 
 /** "Your view": the same match, shaped for you. */
@@ -65,6 +66,26 @@ import { ViewerMode } from '../models';
         </select>
         <small class="muted">The AI crew translates commentary and answers, then re-checks every number.</small>
       </label>
+
+      <fieldset class="sound">
+        <legend>Sound</legend>
+        <label class="check">
+          <input type="checkbox" [checked]="sound.settings().enabled" (change)="sound.update({ enabled: checked($event) })" />
+          <span>Crowd and the goal call</span>
+        </label>
+        <label class="check">
+          <input type="checkbox" [checked]="sound.settings().commentary" [disabled]="!sound.settings().enabled"
+                 (change)="sound.update({ commentary: checked($event) })" />
+          <span>Read the commentary aloud</span>
+        </label>
+        <small class="muted">
+          @if (sound.cloudVoice()) {
+            Neural voices from Azure AI Speech, in your language. Only lines the crew has checked are spoken.
+          } @else {
+            Azure AI Speech isn't set up on this server, so your browser's own voice is used for goals.
+          }
+        </small>
+      </fieldset>
     </aside>
   `,
   styles: `
@@ -80,6 +101,10 @@ import { ViewerMode } from '../models';
     label { display: grid; gap: 6px; }
     small { font-size: var(--step--1); }
     .segmented { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .sound { display: grid; gap: 8px; }
+    .check { display: flex; gap: 10px; align-items: center; }
+    .check input { width: auto; }
+    .check span { font-size: var(--step-0); color: inherit; margin: 0; }
     .segmented button { display: grid; gap: 2px; text-align: left; padding: 10px; }
     .segmented button[aria-pressed="true"] { border-color: var(--floodlight); background: var(--turf); }
     .segmented b { font-family: var(--display); font-size: var(--step-1); }
@@ -88,6 +113,7 @@ import { ViewerMode } from '../models';
 })
 export class ViewerSettingsComponent {
   readonly live = inject(LiveService);
+  readonly sound = inject(SoundService);
   readonly closed = output<void>();
   readonly profile = computed(() => this.live.profile());
 
@@ -98,8 +124,14 @@ export class ViewerSettingsComponent {
     { code: 'pt', name: 'Português' },
     { code: 'ar', name: 'العربية' },
     { code: 'hi', name: 'हिन्दी' },
-    { code: 'ja', name: '日本語' }
+    { code: 'ja', name: '日本語' },
+    { code: 'de', name: 'Deutsch' },
+    { code: 'it', name: 'Italiano' }
   ];
+
+  checked(event: Event): boolean {
+    return (event.target as HTMLInputElement).checked;
+  }
 
   setMode(mode: ViewerMode): void {
     void this.live.updateProfile({ mode });

@@ -1,0 +1,253 @@
+import { Injectable, signal } from '@angular/core';
+import { PersonalizedInsight, ViewerProfile } from './models';
+
+const SOUND_KEY = 'twelfth-voice.sound';
+
+interface SoundSettings {
+  /** Crowd and the goal call. */
+  enabled: boolean;
+  /** Read the crew's commentary lines aloud too. */
+  commentary: boolean;
+}
+
+const DEFAULT_SETTINGS: SoundSettings = { enabled: true, commentary: false };
+
+/** Moments worth reading aloud when spoken commentary is on (goals get their own call). */
+const SPOKEN_KINDS = new Set(['Kickoff', 'BigChance', 'Card', 'MomentumShift', 'PlayerMilestone', 'HalfTime', 'FullTime']);
+const MAX_QUEUE = 2;
+/** Lines older than this (real seconds) are skipped: the match has moved on. */
+const STALE_AFTER_MS = 20_000;
+
+interface QueuedLine {
+  insightId: string;
+  matchId: string;
+  profile: ViewerProfile;
+  queuedAt: number;
+}
+
+/**
+ * The match's sound: a crowd roar made in the browser (Web Audio, no files), the goal call and
+ * spoken commentary from Azure AI Speech via the API. Browsers only allow audio after a click, so
+ * {@link unlock} is called from the Kick off and Watch buttons.
+ */
+@Injectable({ providedIn: 'root' })
+export class SoundService {
+  private context: AudioContext | null = null;
+  private noise: AudioBuffer | null = null;
+  private readonly queue: QueuedLine[] = [];
+  private speaking = false;
+  private readonly spoken = new Set<string>();
+
+  readonly settings = signal<SoundSettings>(loadSettings());
+  /** False once the server says Azure AI Speech isn't configured; the browser's own voice stands in. */
+  readonly cloudVoice = signal(true);
+
+  /** Call from a click: creates or resumes the audio context so later sounds may play. */
+  unlock(): void {
+    try {
+      this.context ??= new AudioContext();
+      if (this.context.state === 'suspended') void this.context.resume();
+    } catch {
+      this.context = null; // no Web Audio; the app stays silent
+    }
+  }
+
+  update(changes: Partial<SoundSettings>): void {
+    const next = { ...this.settings(), ...changes };
+    this.settings.set(next);
+    saveSettings(next);
+    if (!next.enabled) this.stop();
+    else this.unlock();
+  }
+
+  toggle(): void {
+    this.update({ enabled: !this.settings().enabled });
+  }
+
+  /** Stops anything playing and forgets queued lines (e.g. when leaving a match). */
+  stop(): void {
+    this.queue.length = 0;
+    this.spoken.clear();
+    try {
+      window.speechSynthesis?.cancel();
+    } catch {
+      // not supported
+    }
+  }
+
+  /** A new moment arrived live. */
+  onInsight(insight: PersonalizedInsight, profile: ViewerProfile): void {
+    if (!this.settings().enabled || !this.context) return;
+
+    if (insight.kind === 'Goal') {
+      this.roar(6, 1);
+      void this.goalCall(insight, profile);
+      return;
+    }
+    if (insight.kind === 'BigChance') this.roar(2.2, 0.45);
+    if (insight.kind === 'Card') this.roar(1.6, 0.3);
+    if (insight.kind === 'FullTime') this.roar(4, 0.6);
+
+    if (this.settings().commentary && SPOKEN_KINDS.has(insight.kind) && insight.relevance >= 0.5) {
+      // Give the crew a moment to rewrite (and translate) the line, so the viewer hears the AI version.
+      setTimeout(() => this.enqueue(insight, profile), 3500);
+    }
+  }
+
+  // ------------------------------------------------------------------ crowd
+
+  /** Filtered noise swelling and fading: a stadium roar, generated on the fly. */
+  private roar(seconds: number, loudness: number): void {
+    const ctx = this.context;
+    if (!ctx) return;
+    this.noise ??= makeNoise(ctx, 4);
+
+    const now = ctx.currentTime;
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0.0001, now);
+    master.gain.exponentialRampToValueAtTime(0.32 * loudness, now + 0.35);
+    master.gain.setValueAtTime(0.32 * loudness, now + seconds * 0.55);
+    master.gain.exponentialRampToValueAtTime(0.0001, now + seconds);
+    master.connect(ctx.destination);
+
+    // Two bands: the crowd's body and the higher "voices", each slightly wobbling.
+    for (const [frequency, q, level] of [[450, 0.7, 1], [1400, 1.2, 0.55]] as const) {
+      const source = ctx.createBufferSource();
+      source.buffer = this.noise;
+      source.loop = true;
+      const band = ctx.createBiquadFilter();
+      band.type = 'bandpass';
+      band.frequency.value = frequency;
+      band.Q.value = q;
+      const gain = ctx.createGain();
+      gain.gain.value = level;
+
+      const wobble = ctx.createOscillator();
+      wobble.frequency.value = 0.6 + Math.random() * 0.8;
+      const depth = ctx.createGain();
+      depth.gain.value = frequency * 0.15;
+      wobble.connect(depth).connect(band.frequency);
+
+      source.connect(band).connect(gain).connect(master);
+      source.start(now, Math.random() * 3);
+      source.stop(now + seconds + 0.1);
+      wobble.start(now);
+      wobble.stop(now + seconds + 0.1);
+    }
+  }
+
+  // ------------------------------------------------------------------ voice
+
+  private async goalCall(insight: PersonalizedInsight, profile: ViewerProfile): Promise<void> {
+    if (this.spoken.has(insight.insightId)) return;
+    this.spoken.add(insight.insightId);
+    this.queue.length = 0; // a goal trumps anything waiting
+
+    const url = `/api/matches/${encodeURIComponent(insight.matchId)}/speech/${encodeURIComponent(insight.insightId)}/call`
+      + `?language=${encodeURIComponent(profile.language)}`;
+    if (await this.playFromApi(url)) return;
+
+    // No cloud voice: the browser's own, with the word stretched out.
+    this.speakLocally(`Goooooaaaal! ${insight.headline.replace(/^GOAL!\s*/i, '')}`, profile.language, 1.25);
+  }
+
+  private enqueue(insight: PersonalizedInsight, profile: ViewerProfile): void {
+    if (this.spoken.has(insight.insightId) || !this.settings().commentary || !this.settings().enabled) return;
+    this.queue.push({ insightId: insight.insightId, matchId: insight.matchId, profile, queuedAt: Date.now() });
+    while (this.queue.length > MAX_QUEUE) this.queue.shift();
+    void this.drain();
+  }
+
+  private async drain(): Promise<void> {
+    if (this.speaking) return;
+    this.speaking = true;
+    try {
+      for (let next = this.queue.shift(); next; next = this.queue.shift()) {
+        if (Date.now() - next.queuedAt > STALE_AFTER_MS || this.spoken.has(next.insightId)) continue;
+        this.spoken.add(next.insightId);
+        const p = next.profile;
+        const params = new URLSearchParams({ mode: p.mode, language: p.language });
+        if (p.favoriteTeamId) params.set('favoriteTeamId', p.favoriteTeamId);
+        if (p.focusPlayerId) params.set('focusPlayerId', p.focusPlayerId);
+        await this.playFromApi(`/api/matches/${encodeURIComponent(next.matchId)}/speech/${encodeURIComponent(next.insightId)}?${params}`);
+      }
+    } finally {
+      this.speaking = false;
+    }
+  }
+
+  /** Fetches MP3 from the API and plays it to the end. False when the server has no voice. */
+  private async playFromApi(url: string): Promise<boolean> {
+    const ctx = this.context;
+    if (!ctx || !this.cloudVoice()) return false;
+    try {
+      const response = await fetch(url);
+      if (response.status === 503) {
+        this.cloudVoice.set(false);
+        return false;
+      }
+      if (!response.ok || response.status === 204) return false;
+      const audio = await ctx.decodeAudioData(await response.arrayBuffer());
+      if (!this.settings().enabled) return true;
+
+      const source = ctx.createBufferSource();
+      source.buffer = audio;
+      const gain = ctx.createGain();
+      gain.gain.value = 1.4; // sit on top of the crowd
+      source.connect(gain).connect(ctx.destination);
+      await new Promise<void>(resolve => {
+        source.onended = () => resolve();
+        source.start();
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private speakLocally(text: string, language: string, pitch = 1): void {
+    try {
+      const synth = window.speechSynthesis;
+      if (!synth) return;
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = language;
+      utterance.rate = 0.95;
+      utterance.pitch = pitch;
+      synth.speak(utterance);
+    } catch {
+      // not supported
+    }
+  }
+}
+
+function makeNoise(ctx: AudioContext, seconds: number): AudioBuffer {
+  const buffer = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  // Pinkish noise (Paul Kellet's filter) sounds more like a crowd than white noise.
+  let b0 = 0, b1 = 0, b2 = 0;
+  for (let i = 0; i < data.length; i++) {
+    const white = Math.random() * 2 - 1;
+    b0 = 0.99765 * b0 + white * 0.099046;
+    b1 = 0.963 * b1 + white * 0.2965164;
+    b2 = 0.57 * b2 + white * 1.0526913;
+    data[i] = (b0 + b1 + b2 + white * 0.1848) * 0.2;
+  }
+  return buffer;
+}
+
+function loadSettings(): SoundSettings {
+  try {
+    const raw = localStorage.getItem(SOUND_KEY);
+    return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : { ...DEFAULT_SETTINGS };
+  } catch {
+    return { ...DEFAULT_SETTINGS };
+  }
+}
+
+function saveSettings(settings: SoundSettings): void {
+  try {
+    localStorage.setItem(SOUND_KEY, JSON.stringify(settings));
+  } catch {
+    // storage unavailable; settings apply for this session
+  }
+}

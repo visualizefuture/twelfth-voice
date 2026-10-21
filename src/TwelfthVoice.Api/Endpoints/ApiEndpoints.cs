@@ -173,11 +173,12 @@ public static class ApiEndpoints
             .WithName("GetProfile");
 
         // ---------------------------------------------------------------- status
-        api.MapGet("/status", (MatchRegistry registry, IMatchStore store, StorageState storage, BroadcastCrew crew) => Results.Ok(new
+        api.MapGet("/status", (MatchRegistry registry, IMatchStore store, StorageState storage, BroadcastCrew crew, Speech.SpeechService speech) => Results.Ok(new
             {
                 service = "Twelfth Voice",
                 storage = store.Mode,
                 crew = new { usage = crew.Usage, stats = crew.Stats },
+                speech = speech.Usage,
                 storageError = storage.LastError,
                 liveMatches = registry.All.Count(s => s.Status is MatchStatus.Live or MatchStatus.Paused)
             }))

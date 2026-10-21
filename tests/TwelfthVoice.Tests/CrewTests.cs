@@ -344,3 +344,34 @@ public class CrewRoomTests
         Assert.Equal("Fan, English, neutral", entry.Audience);
     }
 }
+
+public class SpeechTests
+{
+    [Fact]
+    public void Goal_call_is_valid_ssml_in_the_viewers_language()
+    {
+        string ssml = TwelfthVoice.Api.Speech.SpeechService.GoalCallSsml("es-MX", "Álvaro O'Neil <9>", "Harbourside", 1, "Ironvale", 0);
+        var doc = System.Xml.Linq.XDocument.Parse(ssml); // throws if escaping is wrong
+        Assert.Equal("es-ES", doc.Root!.Attribute(System.Xml.Linq.XNamespace.Xml + "lang")!.Value);
+        Assert.Contains("es-ES-AlvaroNeural", ssml);
+        Assert.Contains("Gol!", ssml);
+        Assert.Contains("Harbourside 1, Ironvale 0", ssml);
+        Assert.Contains("&lt;9&gt;", ssml);
+    }
+
+    [Fact]
+    public void Unknown_languages_fall_back_to_english()
+    {
+        Assert.Equal("en-GB-RyanNeural", TwelfthVoice.Api.Speech.SpeechService.VoiceFor("xx").Name);
+        Assert.Equal("Tor", TwelfthVoice.Api.Speech.SpeechService.VoiceFor("de").GoalWord);
+    }
+
+    [Fact]
+    public async Task Without_a_key_nothing_is_synthesised()
+    {
+        var service = new TwelfthVoice.Api.Speech.SpeechService(new TwelfthVoice.Api.Speech.SpeechOptions(), new HttpClient(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<TwelfthVoice.Api.Speech.SpeechService>.Instance);
+        Assert.False(service.IsAvailable);
+        Assert.Null(await service.SynthesizeAsync("<speak/>", CancellationToken.None));
+    }
+}

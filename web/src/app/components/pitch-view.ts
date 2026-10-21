@@ -4,6 +4,7 @@ import { kitFor } from '../kits';
 import { LiveService } from '../live.service';
 import { Kit, MatchEvent, PersonalizedInsight, PitchPoint, PlayerLook } from '../models';
 import { PITCH_LENGTH, PITCH_WIDTH, TOUCH_TYPES, actionLabel, ballPosition, toPercent, toScreen } from '../pitch';
+import { ClubBannerComponent } from './club-banner';
 import { PortraitComponent } from './portrait';
 
 type Layer = 'live' | 'heat' | 'shots';
@@ -22,7 +23,7 @@ const TRAIL_LENGTH = 6;
  */
 @Component({
   selector: 'tv-pitch-view',
-  imports: [PortraitComponent],
+  imports: [PortraitComponent, ClubBannerComponent],
   template: `
     <div class="layers" role="tablist" aria-label="Pitch view">
       <button role="tab" type="button" [attr.aria-selected]="layer() === 'live'" (click)="layer.set('live')">Live play</button>
@@ -142,6 +143,10 @@ const TRAIL_LENGTH = 6;
         @switch (o.placement) {
           @case ('full-width') {
             <div class="gfx banner" [class.goal]="o.insight.kind === 'Goal'">
+              @if (o.insight.kind === 'Goal' && scoringTeam(o.insight); as team) {
+                <tv-club-banner class="flag-left" [team]="team" size="big" />
+                <tv-club-banner class="flag-right" [team]="team" side="away" size="big" />
+              }
               <strong class="display">{{ o.insight.headline }}</strong>
               <p>{{ o.insight.body }}</p>
             </div>
@@ -227,6 +232,10 @@ const TRAIL_LENGTH = 6;
     .banner strong { font-size: var(--step-2); }
     .banner.goal { border-top-color: var(--floodlight); background: #1d1600; }
     .banner.goal strong { color: var(--floodlight); font-size: var(--step-3); }
+    .banner .flag-left, .banner .flag-right { position: absolute; top: 50%; transform: translateY(-50%); }
+    .banner .flag-left { left: 18px; }
+    .banner .flag-right { right: 18px; }
+    @media (max-width: 700px) { .banner .flag-left, .banner .flag-right { display: none; } }
     .summary { left: 15%; right: 15%; top: 22%; padding: 18px 22px; background: var(--night-2); border: 1px solid var(--hairline); }
     .summary strong { font-size: var(--step-2); }
     .chip { top: 10px; left: 50%; transform: translateX(-50%); background: var(--night-2); padding: 5px 14px; border-bottom: 2px solid var(--floodlight); }
@@ -259,6 +268,13 @@ export class PitchViewComponent {
   readonly stripes = Array.from({ length: 10 }, (_, i) => i * 10.5);
 
   private readonly homeId = computed(() => this.live.info()?.home.id ?? '');
+
+  /** The club that scored, for the waving banners on the goal graphic. */
+  scoringTeam(insight: PersonalizedInsight) {
+    const info = this.live.info();
+    if (!info || !insight.teamId) return null;
+    return insight.teamId === info.home.id ? info.home : insight.teamId === info.away.id ? info.away : null;
+  }
   readonly homeShort = computed(() => this.live.info()?.home.shortName ?? 'Home');
 
   /** Recent ball positions, oldest first. */

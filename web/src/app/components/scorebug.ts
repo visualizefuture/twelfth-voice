@@ -1,20 +1,24 @@
 import { Component, computed, inject, output } from '@angular/core';
 import { LiveService } from '../live.service';
+import { SoundService } from '../sound.service';
+import { ClubBannerComponent } from './club-banner';
 import { CrestComponent } from './crest';
 
 /** Broadcast-style score bug with playback controls. */
 @Component({
   selector: 'tv-scorebug',
-  imports: [CrestComponent],
+  imports: [CrestComponent, ClubBannerComponent],
   template: `
     @if (live.info(); as info) {
       <header class="bug">
         <button class="back" type="button" (click)="live.leave()" aria-label="Back to fixtures">‹</button>
 
         <div class="score display" aria-live="polite">
+          <tv-club-banner class="banner" [team]="info.home" />
           <span class="team home"><i></i><tv-crest [team]="info.home" [size]="26" />{{ info.home.shortName }}</span>
           <span class="goals">{{ homeScore() }}<span class="dash">–</span>{{ awayScore() }}</span>
           <span class="team away">{{ info.away.shortName }}<tv-crest [team]="info.away" [size]="26" /><i></i></span>
+          <tv-club-banner class="banner" [team]="info.away" side="away" />
           <span class="clock">{{ clock() }}</span>
         </div>
 
@@ -37,6 +41,18 @@ import { CrestComponent } from './crest';
               }
             </select>
           </label>
+          <button type="button" class="sound" (click)="sound.toggle()" [attr.aria-pressed]="sound.settings().enabled"
+                  [attr.aria-label]="sound.settings().enabled ? 'Mute match sound' : 'Turn match sound on'"
+                  [title]="sound.settings().enabled ? 'Sound on' : 'Sound off'">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" />
+              @if (sound.settings().enabled) {
+                <path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              } @else {
+                <path d="M16 9l5 6M21 9l-5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              }
+            </svg>
+          </button>
           <button type="button" class="primary" (click)="openSettings.emit()">Your view</button>
         </div>
       </header>
@@ -59,6 +75,10 @@ import { CrestComponent } from './crest';
     .meta { display: flex; gap: 14px; font-size: var(--step--1); flex-wrap: wrap; }
     .controls { display: flex; gap: 10px; align-items: center; }
     .speed select { width: auto; }
+    .score .banner { align-self: center; margin: 0 10px; }
+    .sound { display: inline-grid; place-items: center; padding: 6px 8px; }
+    .sound[aria-pressed="false"] { color: var(--moss); }
+    @media (max-width: 600px) { .score .banner { display: none; } }
     .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
     @media (max-width: 900px) {
       .bug { grid-template-columns: auto 1fr; }
@@ -69,6 +89,7 @@ import { CrestComponent } from './crest';
 })
 export class ScorebugComponent {
   readonly live = inject(LiveService);
+  readonly sound = inject(SoundService);
   readonly openSettings = output<void>();
   readonly speeds = [1, 30, 60, 120, 300, 600];
 
