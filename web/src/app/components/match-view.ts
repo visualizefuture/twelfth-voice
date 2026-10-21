@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { LiveService } from '../live.service';
 import { AskPanelComponent } from './ask-panel';
+import { CrewRoomComponent } from './crew-room';
 import { InsightFeedComponent } from './insight-feed';
 import { MomentumChartComponent } from './momentum-chart';
 import { PitchViewComponent } from './pitch-view';
@@ -14,7 +15,7 @@ import { ViewerSettingsComponent } from './viewer-settings';
   selector: 'tv-match-view',
   imports: [
     ScorebugComponent, PitchViewComponent, MomentumChartComponent, InsightFeedComponent, AskPanelComponent,
-    StoryPanelComponent, StatsPanelComponent, PlayerCardComponent, ViewerSettingsComponent
+    StoryPanelComponent, StatsPanelComponent, PlayerCardComponent, ViewerSettingsComponent, CrewRoomComponent
   ],
   template: `
     <tv-scorebug (openSettings)="settingsOpen.set(true)" />
@@ -37,6 +38,7 @@ import { ViewerSettingsComponent } from './viewer-settings';
       <tv-story-panel class="panel wide" />
       <tv-stats-panel class="panel" />
       <tv-player-card class="panel" />
+      <tv-crew-room class="panel wide" />
     </main>
 
     @if (settingsOpen()) {

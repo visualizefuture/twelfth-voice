@@ -107,3 +107,49 @@ public class MatchSessionTests
         Assert.Equal(MatchSession.InstantSpeed, session.Speed);
     }
 }
+
+public class McpToolsTests
+{
+    private sealed class Lifetime : Microsoft.Extensions.Hosting.IHostApplicationLifetime
+    {
+        public CancellationToken ApplicationStarted => CancellationToken.None;
+        public CancellationToken ApplicationStopping => CancellationToken.None;
+        public CancellationToken ApplicationStopped => CancellationToken.None;
+        public void StopApplication() { }
+    }
+
+    private sealed class SilentBroadcaster : IMatchBroadcaster
+    {
+        public Task PublishAsync(MatchSession session, MatchEvent matchEvent, IReadOnlyList<Insight> insights, bool stateDue, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task StatusChangedAsync(MatchSession session, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private static TwelfthVoice.Api.Mcp.MatchMcpTools Tools(out MatchRegistry registry)
+    {
+        registry = new MatchRegistry(new SilentBroadcaster(), new InMemoryMatchStore(), NullLoggerFactory.Instance, new Lifetime());
+        var crew = new TwelfthVoice.Agents.BroadcastCrew(new TwelfthVoice.Agents.NullCrewModel(), new TwelfthVoice.Agents.AgentOptions(),
+            NullLogger<TwelfthVoice.Agents.BroadcastCrew>.Instance);
+        return new TwelfthVoice.Api.Mcp.MatchMcpTools(registry, crew);
+    }
+
+    [Fact]
+    public async Task Tools_start_a_match_and_read_it_back()
+    {
+        var tools = Tools(out var registry);
+
+        Assert.Contains("No match is running", tools.GetMatchState());
+        Assert.Contains("Harbourside Rovers", tools.ListTeams());
+
+        string started = tools.StartMatch("HAR", "IRV", 7, MatchSession.InstantSpeed);
+        Assert.Contains("TV-HAR-IRV-7", started);
+        await registry.All[0].Completion.WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Contains("\"score\"", tools.GetMatchState());
+        Assert.Contains("Harbourside", tools.GetTeamStats("HAR"));
+        Assert.Contains("\"top\"", tools.GetTopPlayers("rating"));
+        Assert.Contains("headline", tools.GetRecap());
+        Assert.Equal("[]", tools.GetCrewRoom());
+        Assert.Contains("running on this server", tools.GetMatchState("TV-NOPE"));
+        Assert.Contains("error", tools.StartMatch("XXX", "IRV"));
+    }
+}
