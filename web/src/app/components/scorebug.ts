@@ -15,9 +15,9 @@ import { CrestComponent } from './crest';
 
         <div class="score display" aria-live="polite">
           <tv-club-banner class="banner" [team]="info.home" />
-          <span class="team home"><i></i><tv-crest [team]="info.home" [size]="26" />{{ info.home.shortName }}</span>
+          <span class="team home"><i></i><tv-crest [team]="info.home" [size]="26" /><span class="name">{{ info.home.shortName }}</span><span class="code">{{ info.home.id }}</span></span>
           <span class="goals">{{ homeScore() }}<span class="dash">–</span>{{ awayScore() }}</span>
-          <span class="team away">{{ info.away.shortName }}<tv-crest [team]="info.away" [size]="26" /><i></i></span>
+          <span class="team away"><span class="name">{{ info.away.shortName }}</span><span class="code">{{ info.away.id }}</span><tv-crest [team]="info.away" [size]="26" /><i></i></span>
           <tv-club-banner class="banner" [team]="info.away" side="away" />
           <span class="clock">{{ clock() }}</span>
         </div>
@@ -69,7 +69,8 @@ import { CrestComponent } from './crest';
     .team i { width: 6px; align-self: stretch; }
     .home i { background: var(--home); }
     .away i { background: var(--away); }
-    .goals { padding: 6px 14px; background: var(--chalk); color: var(--night); font-weight: 700; font-variant-numeric: tabular-nums; }
+    .code { display: none; }
+    .goals { white-space: nowrap; padding: 6px 14px; background: var(--chalk); color: var(--night); font-weight: 700; font-variant-numeric: tabular-nums; }
     .dash { padding: 0 4px; }
     .clock { padding: 6px 12px; color: var(--floodlight); font-variant-numeric: tabular-nums; min-width: 4.5em; }
     .meta { display: flex; gap: 14px; font-size: var(--step--1); flex-wrap: wrap; }
@@ -78,7 +79,14 @@ import { CrestComponent } from './crest';
     .score .banner { align-self: center; margin: 0 10px; }
     .sound { display: inline-grid; place-items: center; padding: 6px 8px; }
     .sound[aria-pressed="false"] { color: var(--moss); }
-    @media (max-width: 600px) { .score .banner { display: none; } }
+    @media (max-width: 600px) {
+      .score .banner { display: none; }
+      .score { font-size: var(--step-1); }
+      .name { display: none; }
+      .code { display: inline; }
+      .team, .goals, .clock { padding: 5px 8px; }
+      .clock { min-width: 0; }
+    }
     .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
     @media (max-width: 900px) {
       .bug { grid-template-columns: auto 1fr; }

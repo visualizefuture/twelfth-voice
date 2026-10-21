@@ -280,7 +280,8 @@ const TRAIL_LENGTH = 6;
     .pitch { position: absolute; inset: 0; }
     .hud { position: absolute; inset: 0; pointer-events: none; z-index: 6; }
     .hud button { pointer-events: auto; }
-    svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .pitch > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .playpause svg { flex: none; }
     .turf { fill: var(--turf); }
     .stripe { fill: var(--turf-stripe); }
     .lines { fill: none; stroke: var(--chalk); stroke-opacity: 0.55; stroke-width: 0.3; }
@@ -461,7 +462,10 @@ const TRAIL_LENGTH = 6;
       .banner strong { font-size: var(--step-1); }
       .banner.goal strong { font-size: var(--step-2); }
       .gfx p { display: none; }
-      .stadium .camera-rig { inset: 30% 6% 3% 6%; }
+      .stage.stadium { aspect-ratio: 4 / 3; }
+      .stadium .camera-rig { inset: 30% 4% 3% 4%; }
+      .stadium .token .figure { transform: rotateX(calc(var(--tilt) * -1)) scale(0.7); }
+      .num { display: none; }
       .playpause span { display: none; }
     }
     @media (prefers-reduced-motion: reduce) {
