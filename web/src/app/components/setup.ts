@@ -1,7 +1,10 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../api.service';
+import { asAwayTeam } from '../kits';
 import { LiveService } from '../live.service';
+import { CrestComponent } from './crest';
+import { LineupCardComponent } from './lineup-card';
 import { MatchSummary, Team } from '../models';
 
 const CONNECT_ATTEMPTS = 20;
@@ -11,7 +14,7 @@ const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, m
 /** Pick a fixture and kick off, or join a match that's already running. */
 @Component({
   selector: 'tv-setup',
-  imports: [FormsModule],
+  imports: [FormsModule, CrestComponent, LineupCardComponent],
   template: `
     <section class="setup">
       <div class="intro">
@@ -27,20 +30,26 @@ const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, m
         <div class="teams">
           <label>
             <span>Home</span>
-            <select name="home" [(ngModel)]="homeId" required>
-              @for (team of teams(); track team.id) {
-                <option [value]="team.id">{{ team.name }}</option>
-              }
-            </select>
+            <span class="pick">
+              <tv-crest [team]="homeTeam()" [size]="34" />
+              <select name="home" [ngModel]="homeId()" (ngModelChange)="homeId.set($event)" required>
+                @for (team of teams(); track team.id) {
+                  <option [value]="team.id">{{ team.name }}</option>
+                }
+              </select>
+            </span>
           </label>
           <span class="versus display">v</span>
           <label>
             <span>Away</span>
-            <select name="away" [(ngModel)]="awayId" required>
-              @for (team of teams(); track team.id) {
-                <option [value]="team.id" [disabled]="team.id === homeId">{{ team.name }}</option>
-              }
-            </select>
+            <span class="pick">
+              <tv-crest [team]="awayTeam()" [size]="34" />
+              <select name="away" [ngModel]="awayId()" (ngModelChange)="awayId.set($event)" required>
+                @for (team of teams(); track team.id) {
+                  <option [value]="team.id" [disabled]="team.id === homeId()">{{ team.name }}</option>
+                }
+              </select>
+            </span>
           </label>
         </div>
 
@@ -60,7 +69,7 @@ const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, m
           </label>
         </div>
 
-        <button class="primary kick" type="submit" [disabled]="busy() || connecting() || teams().length === 0 || homeId === awayId">
+        <button class="primary kick" type="submit" [disabled]="busy() || connecting() || teams().length === 0 || homeId() === awayId()">
           {{ busy() ? 'Starting…' : 'Kick off' }}
         </button>
         @if (connecting()) {
@@ -70,6 +79,13 @@ const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, m
           <p class="error" role="alert">{{ error() }}</p>
         }
       </form>
+
+      @if (homeTeam() && awayTeam()) {
+        <div class="sheets">
+          <tv-lineup-card [team]="homeTeam()" />
+          <tv-lineup-card [team]="awayTeam()" />
+        </div>
+      }
 
       @if (liveMatches().length > 0) {
         <div class="running">
@@ -88,7 +104,12 @@ const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, m
     </section>
   `,
   styles: `
-    .setup { max-width: 720px; margin: 0 auto; padding: 56px 20px; }
+    .setup { max-width: 1080px; margin: 0 auto; padding: 56px 20px; }
+    .fixture { max-width: 720px; }
+    .pick { display: flex; gap: 10px; align-items: center; }
+    .pick select { flex: 1; }
+    .sheets { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 36px; }
+    @media (max-width: 900px) { .sheets { grid-template-columns: 1fr; } }
     h1 { font-size: var(--step-3); margin: 0; line-height: 1; }
     .lede { color: var(--moss); font-size: var(--step-1); max-width: 34ch; margin: 12px 0 36px; }
     .fixture { display: grid; gap: 20px; }
@@ -122,8 +143,13 @@ export class SetupComponent implements OnInit {
   readonly connecting = signal(false);
   readonly error = signal<string | null>(null);
 
-  homeId = 'HAR';
-  awayId = 'IRV';
+  readonly homeId = signal('HAR');
+  readonly awayId = signal('IRV');
+  readonly homeTeam = computed(() => this.teams().find(t => t.id === this.homeId()));
+  readonly awayTeam = computed(() => {
+    const away = this.teams().find(t => t.id === this.awayId());
+    return away ? asAwayTeam(away, this.homeTeam()) : undefined;
+  });
   seed = 7;
   speed = 60;
 
@@ -150,7 +176,7 @@ export class SetupComponent implements OnInit {
     this.busy.set(true);
     this.error.set(null);
     try {
-      const match = await this.api.createMatch({ homeTeamId: this.homeId, awayTeamId: this.awayId, seed: this.seed, speed: this.speed });
+      const match = await this.api.createMatch({ homeTeamId: this.homeId(), awayTeamId: this.awayId(), seed: this.seed, speed: this.speed });
       await this.live.join(match.matchId);
     } catch {
       this.error.set(this.live.error() ?? 'The match couldn\'t start. Check the API is running and try again.');

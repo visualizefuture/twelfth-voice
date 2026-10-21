@@ -6,6 +6,39 @@ export type Perspective = 'Neutral' | 'Favorite' | 'Opponent';
 
 export interface PitchPoint { x: number; y: number; }
 
+export type KitPattern = 'Plain' | 'Stripes' | 'Hoops' | 'Halves' | 'Sash' | 'Sleeves';
+
+export interface Kit {
+  shirt: string;
+  trim: string;
+  pattern: KitPattern;
+  shorts: string;
+  socks: string;
+  number: string;
+}
+
+export interface Crest {
+  shape: 'Shield' | 'Roundel' | 'Pennant' | 'Badge';
+  emblem: string;
+  field: string;
+  accent: string;
+  founded: number;
+  motto: string;
+}
+
+export interface PlayerLook {
+  skinTone: string;
+  hairStyle: string;
+  hairColor: string;
+  facialHair: string;
+}
+
+export interface LineupSlot {
+  playerId: string;
+  position: string;
+  base: PitchPoint;
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -13,6 +46,8 @@ export interface Player {
   shirtNumber: number;
   position: string;
   nationality: string;
+  isCaptain?: boolean;
+  look?: PlayerLook;
 }
 
 export interface Team {
@@ -25,6 +60,13 @@ export interface Team {
   secondaryColor: string;
   formation: string;
   squad: Player[];
+  nickname?: string;
+  homeKit?: Kit;
+  awayKit?: Kit;
+  goalkeeperKit?: Kit;
+  matchKit?: Kit;
+  crest?: Crest;
+  lineup?: LineupSlot[];
 }
 
 export interface MatchInfo {

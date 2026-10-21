@@ -1,7 +1,10 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { playerTokens } from '../formation';
+import { kitFor } from '../kits';
 import { LiveService } from '../live.service';
-import { MatchEvent, PersonalizedInsight, PitchPoint } from '../models';
+import { Kit, MatchEvent, PersonalizedInsight, PitchPoint, PlayerLook } from '../models';
 import { PITCH_LENGTH, PITCH_WIDTH, TOUCH_TYPES, actionLabel, ballPosition, toPercent, toScreen } from '../pitch';
+import { PortraitComponent } from './portrait';
 
 type Layer = 'live' | 'heat' | 'shots';
 
@@ -19,6 +22,7 @@ const TRAIL_LENGTH = 6;
  */
 @Component({
   selector: 'tv-pitch-view',
+  imports: [PortraitComponent],
   template: `
     <div class="layers" role="tablist" aria-label="Pitch view">
       <button role="tab" type="button" [attr.aria-selected]="layer() === 'live'" (click)="layer.set('live')">Live play</button>
@@ -101,6 +105,17 @@ const TRAIL_LENGTH = 6;
           }
         }
       </svg>
+
+      <!-- all 22 players, in their kits, moving with the play -->
+      @if (layer() === 'live') {
+        @for (t of tokens(); track t.playerId) {
+          <div class="token" [class.away]="!t.home" [class.on-ball]="t.onBall"
+               [style.left.%]="t.x / length * 100" [style.top.%]="t.y / width * 100">
+            <tv-portrait [playerLook]="lookOf(t.playerId)" [playerKit]="kitOf(t.playerId)" [size]="26"
+                         [captain]="isCaptain(t.playerId)" [label]="nameOf(t.playerId)" />
+          </div>
+        }
+      }
 
       <!-- player tag: real-time identification of whoever is on the ball -->
       @if (layer() === 'live' && tag(); as t) {
@@ -187,13 +202,20 @@ const TRAIL_LENGTH = 6;
     .ball-core { fill: #ffffff; }
 
     .tag {
-      position: absolute; transform: translate(-50%, calc(-100% - 14px)); white-space: nowrap; pointer-events: none;
+      position: absolute; transform: translate(-50%, calc(-100% - 20px)); white-space: nowrap; pointer-events: none; z-index: 4;
       background: var(--night-2); border-left: 3px solid var(--home); padding: 3px 8px; font-size: var(--step--1);
       transition: left 0.45s ease-out, top 0.45s ease-out;
     }
     .tag.away { border-left-color: var(--away); }
     .tag b { font-family: var(--display); font-size: 1.05em; }
     .tag span { color: var(--moss); margin-left: 8px; }
+    .token {
+      position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%;
+      box-shadow: 0 0 0 2px var(--home), 0 2px 6px rgba(0, 0, 0, 0.45); z-index: 2; pointer-events: none;
+      transition: left 0.6s ease-out, top 0.6s ease-out, transform 0.2s;
+    }
+    .token.away { box-shadow: 0 0 0 2px var(--away), 0 2px 6px rgba(0, 0, 0, 0.45); }
+    .token.on-ball { z-index: 3; transform: translate(-50%, -50%) scale(1.3); box-shadow: 0 0 0 2px var(--floodlight), 0 0 14px rgba(246, 196, 69, 0.6); }
     .layer-note { position: absolute; left: 12px; bottom: 10px; font-size: var(--step--1); background: var(--night-2); padding: 4px 10px; }
 
     .gfx { position: absolute; pointer-events: none; animation: gfx-in 0.35s ease-out; }
@@ -275,6 +297,30 @@ export class PitchViewComponent {
     const home = this.homeId();
     return { from: toScreen(e.start, e.teamId, home), to: toScreen(e.end, e.teamId, home) };
   });
+
+  /** Synthetic positions for all 22 players, recomputed on every action. */
+  readonly tokens = computed(() => {
+    const info = this.live.info();
+    return info ? playerTokens(info, this.live.events(), this.live.lastAction()) : [];
+  });
+
+  lookOf(playerId: string): PlayerLook | undefined {
+    return this.live.players().get(playerId)?.player.look;
+  }
+
+  kitOf(playerId: string): Kit | undefined {
+    const ref = this.live.players().get(playerId);
+    return ref ? kitFor(ref.team, ref.player) : undefined;
+  }
+
+  isCaptain(playerId: string): boolean {
+    return !!this.live.players().get(playerId)?.player.isCaptain;
+  }
+
+  nameOf(playerId: string): string {
+    const ref = this.live.players().get(playerId);
+    return ref ? `${ref.player.shirtNumber} ${ref.player.name}` : '';
+  }
 
   readonly tag = computed(() => {
     const e = this.live.lastAction();

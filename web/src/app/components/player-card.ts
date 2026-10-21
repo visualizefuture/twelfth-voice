@@ -1,14 +1,18 @@
 import { Component, computed, inject } from '@angular/core';
+import { kitFor } from '../kits';
 import { LiveService } from '../live.service';
+import { PortraitComponent } from './portrait';
 
 /** Player-focus mode: one player's match, live. */
 @Component({
   selector: 'tv-player-card',
+  imports: [PortraitComponent],
   template: `
     <section aria-label="Focus player">
       @if (player(); as p) {
         <header>
-          <span class="shirt display" [class.away]="!isHome()">{{ p.shirtNumber }}</span>
+          <tv-portrait [playerLook]="ref()?.player?.look" [playerKit]="kit()" [number]="p.shirtNumber" [size]="56"
+                       [captain]="!!ref()?.player?.isCaptain" [label]="p.name" />
           <div>
             <h2 class="display">{{ p.name }}</h2>
             <p class="muted">{{ teamName() }}, {{ p.position }}{{ p.onPitch ? '' : ', off the pitch' }}</p>
@@ -49,6 +53,16 @@ export class PlayerCardComponent {
   private readonly live = inject(LiveService);
 
   readonly player = computed(() => this.live.state()?.focusPlayer ?? null);
+
+  readonly ref = computed(() => {
+    const p = this.player();
+    return p ? this.live.players().get(p.playerId) ?? null : null;
+  });
+
+  readonly kit = computed(() => {
+    const r = this.ref();
+    return r ? kitFor(r.team, r.player) : undefined;
+  });
 
   readonly isHome = computed(() => this.player()?.teamId === this.live.info()?.home.id);
 

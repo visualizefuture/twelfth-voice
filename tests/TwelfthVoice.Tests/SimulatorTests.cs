@@ -132,3 +132,45 @@ public class SimulatorTests
         Assert.Equal(JsonSerializer.Serialize(events, MatchJson.Compact), JsonSerializer.Serialize(back, MatchJson.Compact));
     }
 }
+
+public class ClubIdentityTests
+{
+    [Fact]
+    public void Every_club_has_kits_a_crest_a_captain_and_a_lineup()
+    {
+        foreach (var team in SyntheticLeague.BuildAll())
+        {
+            Assert.NotNull(team.HomeKit);
+            Assert.NotNull(team.AwayKit);
+            Assert.NotNull(team.GoalkeeperKit);
+            Assert.NotNull(team.Crest);
+            Assert.False(string.IsNullOrWhiteSpace(team.Nickname));
+            Assert.Single(team.Squad, p => p.IsCaptain);
+            Assert.DoesNotContain(team.Squad, p => p.IsCaptain && p.Position == Position.GK);
+            Assert.Equal(11, team.Lineup.Count);
+            Assert.Equal(team.Squad.Take(11).Select(p => p.Id), team.Lineup.Select(s => s.PlayerId));
+        }
+    }
+
+    [Fact]
+    public void Looks_are_stable_and_do_not_change_the_squad()
+    {
+        var a = SyntheticLeague.BuildTeam("HAR");
+        var b = SyntheticLeague.BuildTeam("HAR");
+        Assert.Equal(a.Squad.Select(p => p.Look), b.Squad.Select(p => p.Look));
+        Assert.Equal(a.Squad.Select(p => p.Name), b.Squad.Select(p => p.Name));
+    }
+
+    [Fact]
+    public void Away_side_changes_kit_when_shirts_clash()
+    {
+        // Harbourside's navy and Ironvale's black are too close to tell apart.
+        var match = MatchSimulator.Run(new SimulationOptions { Seed = 1, HomeTeamId = "HAR", AwayTeamId = "IRV" });
+        Assert.Equal(match.Info.Away.AwayKit, match.Info.Away.MatchKit);
+        Assert.Equal(match.Info.Home.HomeKit, match.Info.Home.MatchKit);
+
+        // Harbourside v Ashcombe (navy v green) needs no change.
+        var other = MatchSimulator.Run(new SimulationOptions { Seed = 1, HomeTeamId = "HAR", AwayTeamId = "ASH" });
+        Assert.Equal(other.Info.Away.HomeKit, other.Info.Away.MatchKit);
+    }
+}

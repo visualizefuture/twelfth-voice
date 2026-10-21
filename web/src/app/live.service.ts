@@ -276,8 +276,10 @@ export class MatchUnavailableError extends Error {
 
 function applyTeamColours(info: MatchInfo): void {
   const root = document.documentElement.style;
-  root.setProperty('--home', readable(info.home.primaryColor, info.home.secondaryColor));
-  root.setProperty('--away', readable(info.away.primaryColor, info.away.secondaryColor));
+  const home = info.home.matchKit;
+  const away = info.away.matchKit;
+  root.setProperty('--home', home ? readable(home.shirt, home.trim) : readable(info.home.primaryColor, info.home.secondaryColor));
+  root.setProperty('--away', away ? readable(away.shirt, away.trim) : readable(info.away.primaryColor, info.away.secondaryColor));
 }
 
 /** Club primaries can be very dark (navy, black); use the secondary colour when the primary won't show on the night pitch. */

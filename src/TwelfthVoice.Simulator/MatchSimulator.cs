@@ -79,7 +79,7 @@ public sealed class MatchSimulator
             throw new ArgumentException("Home and away teams must be different.");
 
         var home = SyntheticLeague.BuildTeam(homeId, _options.LeagueSeed);
-        var away = SyntheticLeague.BuildTeam(awayId, _options.LeagueSeed);
+        var away = SyntheticLeague.ForAwayFixture(SyntheticLeague.BuildTeam(awayId, _options.LeagueSeed), home);
 
         _info = new MatchInfo
         {

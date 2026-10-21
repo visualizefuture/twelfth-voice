@@ -1,18 +1,20 @@
 import { Component, computed, inject, output } from '@angular/core';
 import { LiveService } from '../live.service';
+import { CrestComponent } from './crest';
 
 /** Broadcast-style score bug with playback controls. */
 @Component({
   selector: 'tv-scorebug',
+  imports: [CrestComponent],
   template: `
     @if (live.info(); as info) {
       <header class="bug">
         <button class="back" type="button" (click)="live.leave()" aria-label="Back to fixtures">‹</button>
 
         <div class="score display" aria-live="polite">
-          <span class="team home"><i></i>{{ info.home.shortName }}</span>
+          <span class="team home"><i></i><tv-crest [team]="info.home" [size]="26" />{{ info.home.shortName }}</span>
           <span class="goals">{{ homeScore() }}<span class="dash">–</span>{{ awayScore() }}</span>
-          <span class="team away">{{ info.away.shortName }}<i></i></span>
+          <span class="team away">{{ info.away.shortName }}<tv-crest [team]="info.away" [size]="26" /><i></i></span>
           <span class="clock">{{ clock() }}</span>
         </div>
 
