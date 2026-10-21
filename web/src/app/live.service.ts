@@ -45,6 +45,8 @@ export class LiveService {
   readonly overlays = signal<ActiveOverlay[]>([]);
   readonly connectionState = signal<'idle' | 'connecting' | 'live' | 'reconnecting' | 'offline'>('idle');
   readonly error = signal<string | null>(null);
+  /** A message for the fixtures screen, e.g. why the viewer was sent back to it. */
+  readonly notice = signal<string | null>(null);
   readonly profile = signal<ViewerProfile>(loadProfile());
 
   readonly matchId = computed(() => this.info()?.matchId ?? null);
@@ -62,10 +64,12 @@ export class LiveService {
 
   async join(matchId: string): Promise<void> {
     this.error.set(null);
+    this.notice.set(null);
     try {
       const connection = await this.ensureConnected();
       this.reset();
-      const result = await connection.invoke<JoinResult>('JoinMatch', matchId, this.profile());
+      const result = await connection.invoke<JoinResult | null>('JoinMatch', matchId, this.profile());
+      if (!result) throw new MatchUnavailableError();
       this.applyJoin(result);
       await connection.invoke('SubscribeEvents', true);
       await this.loadEventHistory(matchId);
@@ -134,7 +138,16 @@ export class LiveService {
       connection.onreconnected(async () => {
         this.connectionState.set('live');
         const id = this.matchId();
-        if (id) await this.join(id);
+        if (!id) return;
+        try {
+          await this.join(id);
+        } catch (err) {
+          // The server restarted and the match is gone: back to the fixtures, with an explanation.
+          this.leave();
+          this.notice.set(err instanceof MatchUnavailableError
+            ? 'The match you were watching ended when the server restarted. Kick off a new one.'
+            : 'The connection came back, but the match couldn\'t be rejoined. Kick off a new one.');
+        }
       });
       connection.onclose(() => this.connectionState.set('offline'));
       this.connection = connection;
@@ -250,6 +263,14 @@ export class LiveService {
     this.events.set([]);
     this.lastAction.set(null);
     this.overlays.set([]);
+  }
+}
+
+/** The match isn't running on the server any more (finished long ago, or the server restarted). */
+export class MatchUnavailableError extends Error {
+  constructor() {
+    super('That match is no longer running. Kick off a new one.');
+    this.name = 'MatchUnavailableError';
   }
 }
 

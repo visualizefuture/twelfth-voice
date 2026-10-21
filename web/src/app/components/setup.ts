@@ -15,6 +15,10 @@ import { MatchSummary, Team } from '../models';
         <p class="lede">Every fan gets their own match. Pick two clubs, kick off, and watch the game explained your way.</p>
       </div>
 
+      @if (live.notice(); as notice) {
+        <p class="notice" role="status">{{ notice }}</p>
+      }
+
       <form class="fixture" (ngSubmit)="kickOff()">
         <div class="teams">
           <label>
@@ -88,6 +92,7 @@ import { MatchSummary, Team } from '../models';
     label span { font-size: var(--step--1); color: var(--moss); }
     .kick { justify-self: start; padding: 10px 28px; font-size: var(--step-1); font-family: var(--display); }
     .error { color: var(--red-card); margin: 0; }
+    .notice { margin: -16px 0 28px; padding: 10px 14px; border-left: 3px solid var(--floodlight); background: var(--night-2); }
     .running { margin-top: 48px; border-top: 1px solid var(--hairline); padding-top: 20px; }
     .running h2 { font-size: var(--step-1); margin: 0 0 12px; }
     .running ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
@@ -102,7 +107,7 @@ import { MatchSummary, Team } from '../models';
 })
 export class SetupComponent implements OnInit {
   private readonly api = inject(ApiService);
-  private readonly live = inject(LiveService);
+  readonly live = inject(LiveService);
 
   readonly teams = signal<Team[]>([]);
   readonly liveMatches = signal<MatchSummary[]>([]);
@@ -142,7 +147,7 @@ export class SetupComponent implements OnInit {
     try {
       await this.live.join(matchId);
     } catch {
-      this.error.set('That match is no longer available.');
+      this.error.set('That match is no longer running. Kick off a new one.');
     } finally {
       this.busy.set(false);
     }
