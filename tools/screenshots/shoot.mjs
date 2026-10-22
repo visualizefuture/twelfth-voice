@@ -17,11 +17,18 @@ const shot = async (name, locator) => {
 };
 
 await page.goto(base);
+// The brand intro plays first; capture it, then let it finish.
+await page.waitForTimeout(1400);
+await shot('00-intro');
+await page.waitForSelector('tv-intro', { state: 'detached', timeout: 8000 }).catch(() => undefined);
 await page.waitForSelector('form.fixture select[name="home"] option', { state: 'attached' });
 await page.waitForTimeout(800);
 await shot('01-fixtures');
 
-await page.selectOption('select[name="speed"]', { label: '120×' });
+await page.locator('input[name="speed"]').fill('2'); // 120x
+await page.click('details.more summary');
+await page.fill('input[name="seed"]', '7');
+await shot('01b-fixtures-options');
 await page.click('button.kick');
 await page.waitForSelector('tv-pitch-view .stage');
 await page.waitForTimeout(6000);
@@ -55,6 +62,10 @@ if (box) {
 }
 
 await page.click('.camera button:has-text("Tactical")');
+await page.click('.tabs button:has-text("Heat map")');
+await page.waitForTimeout(800);
+await shot('06b-team-heat', page.locator('tv-pitch-view'));
+await page.click('.tabs button:has-text("Live play")');
 await page.waitForTimeout(2500);
 await shot('06-tactical');
 
