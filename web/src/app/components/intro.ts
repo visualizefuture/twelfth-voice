@@ -7,7 +7,8 @@ const FADE_MS = 500;
 /**
  * The brand intro: a couple of seconds under the floodlights before the fixtures screen.
  * Shown once per browser session; a click or any key skips it. An optional photo
- * (public/intro-photo.jpg) appears on the left if it exists.
+ * (public/intro-photo.png, a cut-out with a transparent background) stands on the right, lit
+ * by the floodlights, if it exists.
  */
 @Component({
   selector: 'tv-intro',
@@ -27,7 +28,8 @@ const FADE_MS = 500;
       </svg>
 
       @if (photo()) {
-        <img class="photo" src="intro-photo.jpg" alt="" (error)="photo.set(false)" />
+        <div class="spot" aria-hidden="true"></div>
+        <img class="photo" src="intro-photo.png" alt="" (error)="photo.set(false)" />
       }
 
       <div class="brand" [class.with-photo]="photo()">
@@ -59,7 +61,7 @@ const FADE_MS = 500;
     }
     .lights i:nth-child(2) { animation-delay: 0.15s; } .lights i:nth-child(3) { animation-delay: 0.3s; } .lights i:nth-child(4) { animation-delay: 0.45s; }
     .brand { position: relative; text-align: center; padding: 0 24px; }
-    .brand.with-photo { text-align: left; margin-left: 30%; }
+    .brand.with-photo { text-align: left; justify-self: start; margin-left: 8%; max-width: 52%; }
     .kicker {
       margin: 0 0 10px; font-family: var(--display); letter-spacing: 0.3em; text-transform: uppercase;
       color: var(--moss); font-size: var(--step-0); animation: rise 0.6s 0.35s ease-out both;
@@ -71,21 +73,28 @@ const FADE_MS = 500;
     h1 span { color: var(--floodlight); }
     .line { margin: 18px auto 0; max-width: 34ch; font-size: var(--step-1); color: var(--chalk); animation: rise 0.6s 0.95s ease-out both; }
     .with-photo .line { margin-left: 0; }
+    /* the player on the right, lit by the floodlights: a warm spotlight behind, a glow around him */
+    .spot {
+      position: absolute; right: 6%; bottom: 4%; width: 38%; height: 90%;
+      background: radial-gradient(closest-side, rgb(246 196 69 / 0.28) 0%, rgb(246 196 69 / 0.08) 45%, transparent 75%);
+      animation: fade-in 1s 0.2s ease-out both;
+    }
     .photo {
-      position: absolute; left: 4%; bottom: 0; height: 88%; max-width: 34%; object-fit: contain; object-position: bottom;
-      filter: drop-shadow(0 10px 40px rgb(0 0 0 / 0.6)); animation: rise 0.8s 0.3s ease-out both;
+      position: absolute; right: 12%; bottom: 4%; height: 87%; max-width: 30%; object-fit: contain; object-position: bottom;
+      filter: drop-shadow(0 0 2px rgb(255 247 214 / 0.95)) drop-shadow(0 0 16px rgb(246 196 69 / 0.6)) drop-shadow(0 0 48px rgb(246 196 69 / 0.3));
+      animation: rise 0.8s 0.3s ease-out both;
     }
     .skip { position: absolute; right: 20px; bottom: 20px; font-size: var(--step--1); background: rgb(11 34 25 / 0.7); }
     @keyframes fade-in { from { opacity: 0; } }
     @keyframes rise { from { opacity: 0; transform: translateY(24px); } }
     @keyframes flick { 0% { opacity: 0; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
     @media (max-width: 700px) {
-      .photo { display: none; }
+      .photo, .spot { display: none; }
       .brand.with-photo { margin-left: 0; text-align: center; }
       .with-photo .line { margin-left: auto; }
     }
     @media (prefers-reduced-motion: reduce) {
-      .intro, .lights i, .kicker, h1, .line, .photo { animation: none; }
+      .intro, .lights i, .kicker, h1, .line, .photo, .spot { animation: none; }
     }
   `
 })
