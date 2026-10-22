@@ -207,7 +207,7 @@ docs/
 - [x] Goal call and spoken commentary with Azure AI Speech, crowd sound, waving club banners
 - [x] Angular fan app: live pitch with overlays, heat and shot maps, momentum chart, personalised feed
 - [x] Continuous integration: build and test on every pull request
-- [ ] Deployment to Azure Container Apps
+- [x] Deployment to Azure Container Apps (see [docs/DEPLOY.md](docs/DEPLOY.md))
 
 ## License
 
