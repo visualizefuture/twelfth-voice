@@ -68,7 +68,8 @@ import { ViewerSettingsComponent } from './viewer-settings';
     .side { display: flex; flex-direction: column; gap: 18px; min-height: 0; }
     .ask { display: block; border-bottom: 1px solid var(--hairline); padding-bottom: 16px; }
     .block { display: block; border-bottom: 1px solid var(--hairline); padding-bottom: 14px; }
-    .feed { max-height: 60vh; overflow-y: auto; }
+    /* fixed height so the tabs below never jump; the newest moment is always at the top, older ones scroll */
+    .feed { height: 250px; overflow: hidden; }
     .tabs { display: flex; gap: 6px; margin-bottom: -6px; }
     .tabs button { flex: 1; font-family: var(--display); font-size: var(--step-0); padding: 6px 10px; }
     .tabs button[aria-selected="true"] { border-color: var(--chalk); background: var(--turf); }
