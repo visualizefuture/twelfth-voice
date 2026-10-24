@@ -22,6 +22,8 @@ IDENTITY="${IDENTITY:-id-twelfth-voice}"
 DB_NAME="${DB_NAME:-twelfthvoice}"
 GITHUB_REPO="${GITHUB_REPO:-visualizefuture/twelfth-voice}"
 MODEL_DEPLOYMENT="${MODEL_DEPLOYMENT:-gpt-4.1-mini}"
+# Some regions stop taking new SQL servers on new subscriptions; the database can live in another region.
+SQL_LOCATION="${SQL_LOCATION:-$LOCATION}"
 
 step() { printf '\n\033[1;33m==> %s\033[0m\n' "$*"; }
 note() { printf '    %s\n' "$*"; }
@@ -52,7 +54,7 @@ AI_ENDPOINT="https://$AI_NAME.services.ai.azure.com/openai/v1/"
 note "Foundry: $AI_NAME  ($AI_ENDPOINT)"
 if [ -n "$SPEECH_NAME" ]; then
   SPEECH_REGION=$(az cognitiveservices account show -n "$SPEECH_NAME" -g "$RG" --query location -o tsv)
-  SPEECH_KEY=$(az cognitiveservices account keys list -n "$SPEECH_NAME" -g "$RG" --query key1 -o tsv)
+  SPEECH_KEY=$(az cognitiveservices account keys list -n "$SPEECH_NAME" -g "$RG" --query key1 -o tsv --only-show-errors)
   note "Speech:  $SPEECH_NAME ($SPEECH_REGION)"
 else
   SPEECH_REGION=""; SPEECH_KEY=""
@@ -80,10 +82,10 @@ step "Letting the app call your model on Foundry without a key"
 assign "Cognitive Services OpenAI User" "$AI_ID" "$ID_PRINCIPAL" ServicePrincipal
 assign "Azure AI User" "$AI_ID" "$ID_PRINCIPAL" ServicePrincipal
 
-step "Azure SQL server $SQL_SERVER and free database $DB_NAME"
+step "Azure SQL server $SQL_SERVER ($SQL_LOCATION) and free database $DB_NAME"
 if ! az sql server show -n "$SQL_SERVER" -g "$RG" -o none 2>/dev/null; then
   # Entra-only sign-in, with the app's identity as the administrator: no SQL passwords anywhere.
-  az sql server create -n "$SQL_SERVER" -g "$RG" -l "$LOCATION" \
+  az sql server create -n "$SQL_SERVER" -g "$RG" -l "$SQL_LOCATION" \
     --enable-ad-only-auth --external-admin-principal-type Application \
     --external-admin-name "$IDENTITY" --external-admin-sid "$ID_CLIENT" -o none
 fi
