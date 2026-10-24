@@ -22,7 +22,10 @@ GitHub (merge to master)
    It finds your Foundry and Speech resources in `rg-twelfth-voice`, creates the rest, and is safe to run again.
 3. Add the three values it prints as **repository secrets** in GitHub
    (Settings > Secrets and variables > Actions): `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`.
-4. Run **Deploy to Azure** from the Actions tab (or merge to `master`). It builds, rolls out and smoke-tests the app,
+4. If the first deploy fails to sign in with `AADSTS700213 ... subject 'repo:owner@<id>/<repo>@<id>:ref:refs/heads/master'`,
+   your repo uses GitHub's ID-based subject. Rerun the script with
+   `GITHUB_ID_SUBJECT='<that subject>'` (keep any `SQL_LOCATION`/`SQL_SERVER` you used) and deploy again.
+5. Run **Deploy to Azure** from the Actions tab (or merge to `master`). It builds, rolls out and smoke-tests the app,
    and prints its URL.
 
 ## What it costs

@@ -55,7 +55,7 @@ import { PortraitComponent } from './portrait';
         <div class="goals">
           @for (g of replay.goals(); track g.sequence) {
             <button type="button" (click)="watch(g)" [class.home]="g.teamId === live.info()?.home?.id">
-              ▶ {{ goalLabel(g) }}
+              ▶ @if (teamOf(g.teamId); as t) { <tv-crest [team]="t" [size]="18" /> } {{ goalLabel(g) }}
             </button>
           }
         </div>
@@ -81,7 +81,7 @@ import { PortraitComponent } from './portrait';
     .lines { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: var(--step--1); }
     h4 { margin: 6px 0 0; font-family: var(--display); font-size: var(--step-0); }
     .goals { display: flex; flex-wrap: wrap; gap: 6px; }
-    .goals button { border-left: 3px solid var(--away); font-variant-numeric: tabular-nums; }
+    .goals button { display: inline-flex; align-items: center; gap: 6px; border-left: 3px solid var(--away); font-variant-numeric: tabular-nums; }
     .goals button.home { border-left-color: var(--home); }
     .story { justify-self: start; }
   `
@@ -123,6 +123,11 @@ export class MatchSummaryComponent {
   goalLabel(goal: Parameters<ReplayService['play']>[0]): string {
     const scorer = goal.playerId ? this.live.players().get(goal.playerId)?.player.shortName : undefined;
     return `${minute(goal)} ${scorer ?? ''}`.trim();
+  }
+
+  teamOf(teamId: string | undefined) {
+    const info = this.live.info();
+    return !info || !teamId ? null : teamId === info.home.id ? info.home : teamId === info.away.id ? info.away : null;
   }
 
   openStory(): void {
