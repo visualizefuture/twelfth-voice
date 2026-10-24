@@ -178,7 +178,8 @@ export class PlayerCompareComponent {
       row('Tackles + interceptions', a.tackles + a.interceptions, b.tackles + b.interceptions),
       row('Dribbles won', a.dribblesCompleted, b.dribblesCompleted),
       row('Distance (km)', a.distanceM, b.distanceM, km),
-      row('Top speed (km/h)', a.topSpeedKmh, b.topSpeedKmh, n => n.toFixed(1))
+      // Top speed is only measured on sprints; a player who hasn't sprinted shows a dash, not 0.
+      row('Top speed (km/h)', a.topSpeedKmh, b.topSpeedKmh, n => (n > 0 ? n.toFixed(1) : '–'))
     ];
   });
 
