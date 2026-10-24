@@ -536,6 +536,8 @@ const TRAIL_LENGTH = 6;
     .stadium .goalmouth.left .net-back { left: 100%; top: 0; height: 100%; width: 200%; transform-origin: 0 50%; transform: rotateY(-90deg); }
     .stadium .goalmouth.right .net-back { right: 100%; top: 0; height: 100%; width: 200%; transform-origin: 100% 50%; transform: rotateY(90deg); }
     .stadium .token { transform-style: preserve-3d; }
+    /* standing up, the badge must sit above the feet or the grass cuts it off */
+    .stadium .num { bottom: 2px; right: -12px; }
     .stadium .token .figure {
       transform-origin: 50% 100%; top: -24px;
       transform: rotateX(calc(var(--tilt) * -1));
