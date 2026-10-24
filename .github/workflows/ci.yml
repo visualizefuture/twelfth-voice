@@ -72,3 +72,22 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  container:
+    name: Container image
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image (no push)
+        run: docker build -t twelfth-voice:ci .
+      - name: Start it and check health
+        run: |
+          docker run -d --name tv -p 8080:8080 -e Storage__Provider=InMemory twelfth-voice:ci
+          for i in $(seq 1 30); do curl -sf http://localhost:8080/health && break; sleep 2; done
+          curl -sf http://localhost:8080/health
+          curl -sf http://localhost:8080/ | grep -q "<tv-root>" && echo "fan app served"
+          curl -sf http://localhost:8080/api/teams | head -c 200; echo
+      - name: Container log
+        if: always()
+        run: docker logs tv || true
+

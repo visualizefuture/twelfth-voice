@@ -1,0 +1,15 @@
+**/bin/
+**/obj/
+**/node_modules/
+web/dist/
+web/.angular/
+.git/
+.github/
+.vs/
+**/*.user
+tests/
+tools/
+docs/
+TestResults/
+screenshots/
+src/TwelfthVoice.Api/wwwroot/
