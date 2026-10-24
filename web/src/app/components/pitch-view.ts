@@ -49,7 +49,7 @@ const TRAIL_LENGTH = 6;
           <span class="muted">Replays</span>
           @for (g of replay.goals(); track g.sequence) {
             <button type="button" (click)="watchReplay(g)" [class.home]="g.teamId === homeId()" [attr.aria-label]="'Replay the goal: ' + goalLabel(g)">
-              ▶ {{ goalLabel(g) }}
+              ▶ @if (teamOf(g.teamId); as t) { <tv-crest [team]="t" [size]="18" /> } {{ goalLabel(g) }}
             </button>
           }
         </div>
@@ -285,7 +285,7 @@ const TRAIL_LENGTH = 6;
     .layers { display: flex; gap: 10px 14px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
     .tabs, .camera, .replays { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
     .layers button[aria-selected="true"], .layers button[aria-pressed="true"] { border-color: var(--chalk); background: var(--turf); }
-    .replays button { border-left: 3px solid var(--away); font-variant-numeric: tabular-nums; }
+    .replays button { display: inline-flex; align-items: center; gap: 6px; border-left: 3px solid var(--away); font-variant-numeric: tabular-nums; }
     .replays button.home { border-left-color: var(--home); }
     .replays .muted { font-size: var(--step--1); }
     .direction { margin-left: auto; font-size: var(--step--1); }
@@ -365,8 +365,10 @@ const TRAIL_LENGTH = 6;
     .token.on-ball { z-index: 3; }
     .token.on-ball .figure { transform: scale(1.3); box-shadow: 0 0 0 2px var(--floodlight), 0 0 14px rgba(246, 196, 69, 0.6); }
     .num {
-      position: absolute; right: -9px; bottom: -6px; min-width: 15px; height: 13px; padding: 0 2px; border-radius: 3px;
-      border: 1px solid; font: 700 10px/11px var(--display); text-align: center; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+      position: absolute; right: -10px; bottom: -7px; z-index: 1; min-width: 17px; height: 16px; padding: 0 3px; box-sizing: border-box;
+      display: grid; place-items: center; border-radius: 4px; border: 1.5px solid;
+      font-family: var(--display); font-weight: 700; font-size: 12px; line-height: 1; font-variant-numeric: tabular-nums;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
     }
     .replaying .token { transition-duration: 0.8s; transition-timing-function: ease-in-out; }
     .replaying .tag { transition-duration: 0.8s; }
@@ -734,6 +736,12 @@ export class PitchViewComponent {
 
   watchReplay(goal: MatchEvent): void {
     void this.replay.play(goal);
+  }
+
+  /** The club a goal was scored for, so each replay button carries its crest. */
+  teamOf(teamId: string | undefined) {
+    const info = this.live.info();
+    return !info || !teamId ? null : teamId === info.home.id ? info.home : teamId === info.away.id ? info.away : null;
   }
 
   goalLabel(goal: MatchEvent): string {
