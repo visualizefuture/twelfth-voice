@@ -140,6 +140,14 @@ az identity federated-credential show -n github-master --identity-name "$DEPLOY_
     --issuer https://token.actions.githubusercontent.com \
     --subject "repo:$GITHUB_REPO:ref:refs/heads/master" \
     --audiences api://AzureADTokenExchange -o none
+# Newer GitHub repos send the subject with owner and repo IDs (repo:owner@123/name@456:...).
+# Set GITHUB_ID_SUBJECT to that form (it appears in the error of a failed deploy) to trust it too.
+if [ -n "${GITHUB_ID_SUBJECT:-}" ]; then
+  az identity federated-credential show -n github-master-ids --identity-name "$DEPLOY_IDENTITY" -g "$RG" -o none 2>/dev/null || \
+    az identity federated-credential create -n github-master-ids --identity-name "$DEPLOY_IDENTITY" -g "$RG" \
+      --issuer https://token.actions.githubusercontent.com --subject "$GITHUB_ID_SUBJECT" \
+      --audiences api://AzureADTokenExchange -o none
+fi
 RG_ID=$(az group show -n "$RG" --query id -o tsv)
 assign Contributor "$RG_ID" "$DEPLOY_SP" ServicePrincipal
 assign AcrPush "$ACR_ID" "$DEPLOY_SP" ServicePrincipal
