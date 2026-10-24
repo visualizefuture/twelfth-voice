@@ -21,7 +21,6 @@ ENV_NAME="${ENV_NAME:-cae-twelfth-voice}"
 IDENTITY="${IDENTITY:-id-twelfth-voice}"
 DB_NAME="${DB_NAME:-twelfthvoice}"
 GITHUB_REPO="${GITHUB_REPO:-visualizefuture/twelfth-voice}"
-DEPLOY_APP_NAME="${DEPLOY_APP_NAME:-github-twelfth-voice-deploy}"
 MODEL_DEPLOYMENT="${MODEL_DEPLOYMENT:-gpt-4.1-mini}"
 
 step() { printf '\n\033[1;33m==> %s\033[0m\n' "$*"; }
@@ -33,7 +32,8 @@ SUFFIX=$(printf '%s' "$SUBSCRIPTION_ID$RG" | sha1sum | cut -c1-6)
 ACR="${ACR:-twelfthvoice$SUFFIX}"
 SQL_SERVER="${SQL_SERVER:-sql-twelfth-voice-$SUFFIX}"
 
-step "Subscription $SUBSCRIPTION_ID, resource group $RG ($LOCATION)"
+step "Subscription: $(az account show --query name -o tsv) ($SUBSCRIPTION_ID), resource group $RG ($LOCATION)"
+note "Wrong one? Run: az account set --subscription <name or id>, then run this script again."
 az group show -n "$RG" -o none 2>/dev/null || az group create -n "$RG" -l "$LOCATION" -o none
 
 step "Registering resource providers and the Container Apps CLI extension"
@@ -129,20 +129,17 @@ fi
 APP_URL="https://$(az containerapp show -n "$APP" -g "$RG" --query properties.configuration.ingress.fqdn -o tsv)"
 
 step "GitHub Actions sign-in for $GITHUB_REPO (OIDC, no stored secret)"
-DEPLOY_APP_ID=$(az ad app list --display-name "$DEPLOY_APP_NAME" --query "[0].appId" -o tsv)
-if [ -z "$DEPLOY_APP_ID" ]; then
-  DEPLOY_APP_ID=$(az ad app create --display-name "$DEPLOY_APP_NAME" --query appId -o tsv)
-fi
-az ad sp show --id "$DEPLOY_APP_ID" -o none 2>/dev/null || az ad sp create --id "$DEPLOY_APP_ID" -o none
-DEPLOY_SP=$(az ad sp show --id "$DEPLOY_APP_ID" --query id -o tsv)
-if ! az ad app federated-credential list --id "$DEPLOY_APP_ID" --query "[?name=='master']" -o tsv | grep -q .; then
-  az ad app federated-credential create --id "$DEPLOY_APP_ID" --parameters "{
-    \"name\": \"master\",
-    \"issuer\": \"https://token.actions.githubusercontent.com\",
-    \"subject\": \"repo:$GITHUB_REPO:ref:refs/heads/master\",
-    \"audiences\": [\"api://AzureADTokenExchange\"]
-  }" -o none
-fi
+# A second managed identity trusted by GitHub Actions for this repo's master branch. Unlike an
+# app registration it needs no directory permissions, so it also works for guest owners.
+DEPLOY_IDENTITY="${DEPLOY_IDENTITY:-id-twelfth-voice-deploy}"
+az identity show -n "$DEPLOY_IDENTITY" -g "$RG" -o none 2>/dev/null || az identity create -n "$DEPLOY_IDENTITY" -g "$RG" -l "$LOCATION" -o none
+DEPLOY_APP_ID=$(az identity show -n "$DEPLOY_IDENTITY" -g "$RG" --query clientId -o tsv)
+DEPLOY_SP=$(az identity show -n "$DEPLOY_IDENTITY" -g "$RG" --query principalId -o tsv)
+az identity federated-credential show -n github-master --identity-name "$DEPLOY_IDENTITY" -g "$RG" -o none 2>/dev/null || \
+  az identity federated-credential create -n github-master --identity-name "$DEPLOY_IDENTITY" -g "$RG" \
+    --issuer https://token.actions.githubusercontent.com \
+    --subject "repo:$GITHUB_REPO:ref:refs/heads/master" \
+    --audiences api://AzureADTokenExchange -o none
 RG_ID=$(az group show -n "$RG" --query id -o tsv)
 assign Contributor "$RG_ID" "$DEPLOY_SP" ServicePrincipal
 assign AcrPush "$ACR_ID" "$DEPLOY_SP" ServicePrincipal
