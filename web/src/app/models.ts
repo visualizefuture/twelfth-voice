@@ -316,3 +316,23 @@ export interface CrewActivity {
   translation?: string;
   at: string;
 }
+
+/** Full statistics so far (GET /api/matches/{id}/snapshot). */
+export interface MatchSnapshot {
+  matchId: string;
+  period: number;
+  clock: string;
+  homeScore: number;
+  awayScore: number;
+  players: PlayerStats[];
+}
+
+/** The automated recap (GET /api/matches/{id}/recap), final once the match has finished. */
+export interface MatchRecap {
+  headline: string;
+  summary: string;
+  scorers: string[];
+  playerOfTheMatch?: PlayerStats;
+  statLines: string[];
+}
+

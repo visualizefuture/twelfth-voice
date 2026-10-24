@@ -8,7 +8,7 @@ interface StatRow { label: string; home: string; away: string; homeShare: number
   selector: 'tv-stats-panel',
   template: `
     <section aria-label="Team statistics">
-      <h2 class="display">Match stats</h2>
+      <h2 class="sr">Match stats</h2>
       @if (game(); as g) {
         <p class="read muted">
           {{ g.controlLabel }} game, {{ g.tempo.toLowerCase() }}.
@@ -31,7 +31,7 @@ interface StatRow { label: string; home: string; away: string; homeShare: number
     </section>
   `,
   styles: `
-    h2 { font-size: var(--step-1); margin: 0 0 4px; }
+    .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
     .read { margin: 0 0 12px; font-size: var(--step--1); }
     dl { margin: 0; display: grid; gap: 10px; }
     .row { display: grid; grid-template-columns: 4.5em 1fr 4.5em; align-items: baseline; }

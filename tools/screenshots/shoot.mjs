@@ -61,6 +61,11 @@ if (box) {
   console.log('saved 08-goal-closeup');
 }
 
+await page.click('.tabs[aria-label="Match details"] button:has-text("Players")');
+await page.waitForTimeout(3500);
+await shot('09-players', page.locator('.side'));
+await page.click('.tabs[aria-label="Match details"] button:has-text("Teams")');
+
 await page.click('.camera button:has-text("Tactical")');
 await page.click('.tabs button:has-text("Heat map")');
 await page.waitForTimeout(800);
@@ -68,6 +73,19 @@ await shot('06b-team-heat', page.locator('tv-pitch-view'));
 await page.click('.tabs button:has-text("Live play")');
 await page.waitForTimeout(2500);
 await shot('06-tactical');
+
+// Let the match finish for the full-time summary.
+await page.evaluate(async () => {
+  const id = (await (await fetch('/api/matches')).json()).live?.[0]?.matchId;
+  if (id) await fetch(`/api/matches/${id}/speed`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ speed: 100000 }) });
+});
+try {
+  await page.waitForSelector('tv-match-summary .potm', { timeout: 150_000 });
+  await page.waitForTimeout(1000);
+  await shot('10-full-time', page.locator('.side'));
+} catch (err) {
+  console.log('no full-time summary:', err.message);
+}
 
 // Phone width
 await page.click('.camera button:has-text("Stadium")');
