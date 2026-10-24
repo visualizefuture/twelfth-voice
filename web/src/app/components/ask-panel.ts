@@ -53,7 +53,7 @@ interface Exchange { id: number; question: string; answer: AnalystAnswer | null;
     .row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
     .ideas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
     .ideas button { font-size: var(--step--1); color: var(--moss); padding: 4px 10px; border-radius: 999px; }
-    ol { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 12px; max-height: 260px; overflow-y: auto; }
+    ol { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 12px; max-height: 180px; overflow-y: auto; }
     .q { margin: 0; font-weight: 600; }
     .a { margin: 4px 0 0; font-size: var(--step--1); color: var(--chalk); opacity: 0.9; max-width: 60ch; }
     .error { color: var(--red-card); }
