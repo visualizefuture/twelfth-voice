@@ -1,0 +1,30 @@
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'Segoe UI, Arial','fontSize':'15px','primaryColor':'#164233','primaryTextColor':'#eef4ee','primaryBorderColor':'#93ae9f','lineColor':'#93ae9f','tertiaryColor':'#0b2219','clusterBkg':'#0f2b20','clusterBorder':'#2c5a46','edgeLabelBackground':'#0b2219'}}}%%
+flowchart LR
+  subgraph Browser["Fan app (Angular 20)"]
+    UI["Stadium and tactical pitch<br/>overlays, replays, tabs<br/>Your view, Ask the match"]
+  end
+
+  subgraph ACA["Azure Container Apps: one .NET 10 container"]
+    direction TB
+    SIM["Ingest<br/>Match simulator<br/>synthetic events"]
+    INT["Interpret and explain<br/>stats, xG, momentum<br/>insights with evidence"]
+    CREW["AI broadcast crew<br/>Microsoft Agent Framework<br/>Commentator, Fact-checker,<br/>Localizer, Analyst,<br/>Storyteller"]
+    API["Render and personalise<br/>REST, SignalR hub<br/>per-viewer streams"]
+    MCP["MCP server /mcp<br/>match data as tools"]
+    SIM --> INT --> API
+    INT --> CREW --> API
+    MCP -. "reads" .-> INT
+  end
+
+  FOUNDRY["Microsoft Foundry<br/>gpt-4.1-mini"]
+  SPEECH["Azure AI Speech<br/>neural goal calls"]
+  SQL[("Azure SQL Database<br/>matches, events, insights")]
+  GH["GitHub Actions<br/>CI and deploy (OIDC)"]
+  AGENTS["Any MCP client<br/>GitHub Copilot, other agents"]
+
+  UI <-- "SignalR + REST" --> API
+  CREW -- "managed identity" --> FOUNDRY
+  API -- "speech key (secret)" --> SPEECH
+  API -- "managed identity" --> SQL
+  GH -- "image to Container Registry" --> ACA
+  AGENTS <--> MCP
