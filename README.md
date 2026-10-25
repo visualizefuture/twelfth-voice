@@ -9,6 +9,8 @@ Twelfth Voice turns synthetic football events into explainable, personalised mat
 
 **▶ Try it live: [twelfth-voice.lemonpond-53891994.eastus2.azurecontainerapps.io](https://twelfth-voice.lemonpond-53891994.eastus2.azurecontainerapps.io)** (the first visit can take a few seconds while the free database wakes up)
 
+**🎬 Watch the 2-minute demo: [youtu.be/0zcZGuSOt4o](https://youtu.be/0zcZGuSOt4o)**
+
 Built for the *Microsoft × Premier League: Inside the Game* developer hackathon.
 
 ![The live match screen: stadium view, AI-written story, team stats](docs/images/match-screen.jpg)
