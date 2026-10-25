@@ -47,9 +47,17 @@ type Preset = 'captains' | 'rated' | 'scorers' | 'keepers';
                 }
               </select>
             </label>
-            @if (side.stats; as s) {
-              <span class="rating display" [attr.aria-label]="'Rating ' + s.rating.toFixed(1)">{{ s.rating.toFixed(1) }}</span>
-            }
+            <span class="meta">
+              @if (side.stats; as s) {
+                <span class="rating display" [attr.aria-label]="'Rating ' + s.rating.toFixed(1)">{{ s.rating.toFixed(1) }}</span>
+              }
+              @if (side.id) {
+                <button type="button" class="follow" [attr.aria-pressed]="followed() === side.id" (click)="follow(side.id)"
+                        [title]="followed() === side.id ? 'Stop following' : 'Follow: the story, heat map and spoken lines follow this player'">
+                  {{ followed() === side.id ? '★ Following' : '☆ Follow' }}
+                </button>
+              }
+            </span>
           </div>
         }
       </div>
@@ -81,7 +89,11 @@ type Preset = 'captains' | 'rated' | 'scorers' | 'keepers';
     .head tv-portrait { grid-row: 1 / span 2; }
     .head.b { grid-template-columns: 1fr auto; text-align: right; }
     .head.b tv-portrait { grid-column: 2; grid-row: 1 / span 2; }
-    .head.b label, .head.b .rating { grid-column: 1; }
+    .head.b label, .head.b .meta { grid-column: 1; }
+    .meta { display: flex; align-items: center; gap: 8px; }
+    .head.b .meta { justify-content: flex-end; }
+    .follow { font-size: var(--step--1); padding: 3px 9px; }
+    .follow[aria-pressed="true"] { border-color: var(--floodlight); color: var(--floodlight); }
     .head select { width: 100%; font-size: var(--step--1); padding: 4px 6px; }
     .rating { font-size: var(--step-2); color: var(--floodlight); line-height: 1; }
     dl { margin: 0; display: grid; gap: 9px; }
@@ -182,6 +194,13 @@ export class PlayerCompareComponent {
       row('Top speed (km/h)', a.topSpeedKmh, b.topSpeedKmh, n => (n > 0 ? n.toFixed(1) : '–'))
     ];
   });
+
+  readonly followed = computed(() => this.live.profile().focusPlayerId);
+
+  /** Follow a player: the story is told through them, and the heat map and player card switch to them. */
+  follow(playerId: string): void {
+    void this.live.updateProfile({ focusPlayerId: this.followed() === playerId ? null : playerId });
+  }
 
   pick(side: 'a' | 'b', event: Event): void {
     const id = (event.target as HTMLSelectElement).value;

@@ -25,9 +25,10 @@ await page.waitForSelector('form.fixture select[name="home"] option', { state: '
 await page.waitForTimeout(800);
 await shot('01-fixtures');
 
-await page.locator('input[name="speed"]').fill('2'); // 120x
 await page.click('details.more summary');
-await page.fill('input[name="seed"]', '7');
+await page.locator('input[name="speed"]').fill('2'); // 120x
+await page.fill('input[name="seed"]', '7'); // focusing the box picks "Replay match number"
+
 await shot('01b-fixtures-options');
 await page.click('button.kick');
 await page.waitForSelector('tv-pitch-view .stage');

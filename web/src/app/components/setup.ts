@@ -67,23 +67,33 @@ const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, m
         </div>
 
         <div class="launch">
-          <label class="speed">
-            <span>Match speed <b>{{ speedLabel() }}</b></span>
-            <input type="range" name="speed" min="0" [max]="speeds.length - 1" step="1"
-                   [value]="speedIndex()" (input)="speedIndex.set(+$any($event.target).value)"
-                   [attr.aria-valuetext]="speedLabel()" />
-            <span class="ticks" aria-hidden="true">
-              @for (s of speeds; track s.value) { <i>{{ s.short }}</i> }
-            </span>
-          </label>
-
           <details class="more">
             <summary>More options</summary>
-            <label>
-              <span>Match seed</span>
-              <input name="seed" type="number" min="1" placeholder="New match every time" [(ngModel)]="seed">
-              <small class="muted">The same seed and clubs always play the same match, handy for demos and replays.</small>
-            </label>
+            <div class="options">
+              <label class="speed">
+                <span>Match speed <b>{{ speedLabel() }}</b></span>
+                <input type="range" name="speed" min="0" [max]="speeds.length - 1" step="1"
+                       [value]="speedIndex()" (input)="speedIndex.set(+$any($event.target).value)"
+                       [attr.aria-valuetext]="speedLabel()" />
+                <span class="ticks" aria-hidden="true">
+                  @for (s of speeds; track s.value) { <i>{{ s.short }}</i> }
+                </span>
+              </label>
+
+              <fieldset class="which">
+                <legend>Which match</legend>
+                <label class="radio">
+                  <input type="radio" name="matchKind" [checked]="!replaySeed()" (change)="replaySeed.set(false)" />
+                  <span>A new match every time</span>
+                </label>
+                <label class="radio">
+                  <input type="radio" name="matchKind" [checked]="replaySeed()" (change)="replaySeed.set(true)" />
+                  <span>Replay match number</span>
+                  <input name="seed" type="number" min="1" inputmode="numeric" [(ngModel)]="seed" (focus)="replaySeed.set(true)" aria-label="Match number" />
+                </label>
+                <small class="muted">The same number and clubs always play the same match, handy for demos.</small>
+              </fieldset>
+            </div>
           </details>
 
           <button class="primary kick" type="submit" [disabled]="busy() || connecting() || teams().length === 0 || homeId() === awayId()">
@@ -131,13 +141,19 @@ const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, m
     .select select { flex: 1; font-size: var(--step-0); }
 
     .launch { display: grid; gap: 18px; max-width: 560px; margin: 32px auto 0; text-align: center; }
+    .options { display: grid; gap: 18px; margin-top: 12px; }
+    .which { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .which legend { font-size: var(--step--1); color: var(--moss); margin-bottom: 4px; }
+    .radio { display: flex; align-items: center; gap: 10px; }
+    .radio > input[type="radio"] { width: auto; accent-color: var(--floodlight); }
+    .radio > span { font-size: var(--step-0); color: var(--chalk); }
+    .radio input[type="number"] { width: 7em; }
     .speed b { color: var(--chalk); font-weight: 600; margin-left: 6px; }
     .speed input { width: 100%; accent-color: var(--floodlight); }
     .ticks { display: flex; justify-content: space-between; font-size: var(--step--1); color: var(--moss); }
     .ticks i { font-style: normal; }
     .more { text-align: left; }
     .more summary { cursor: pointer; color: var(--moss); font-size: var(--step--1); }
-    .more label { margin-top: 10px; }
     .more small { font-size: var(--step--1); }
     .kick { justify-self: center; padding: 12px 48px; font-size: var(--step-2); font-family: var(--display); }
     .error { color: var(--red-card); margin: 0; }
@@ -171,8 +187,9 @@ export class SetupComponent implements OnInit {
     const away = this.teams().find(t => t.id === this.awayId());
     return away ? asAwayTeam(away, this.homeTeam()) : undefined;
   });
-  /** Empty = a new match every time. */
-  seed: number | null = null;
+  /** The match number used when replaying a match; otherwise every kick-off is a new match. */
+  seed: number | null = 7;
+  readonly replaySeed = signal(false);
 
   readonly speeds = [
     { value: 30, short: '30×', label: '30×, half a minute per second' },
@@ -207,7 +224,7 @@ export class SetupComponent implements OnInit {
     this.busy.set(true);
     this.error.set(null);
     try {
-      const seed = this.seed && this.seed > 0 ? this.seed : Math.floor(Math.random() * 1_000_000) + 1;
+      const seed = this.replaySeed() && this.seed && this.seed > 0 ? this.seed : Math.floor(Math.random() * 1_000_000) + 1;
       const match = await this.api.createMatch({
         homeTeamId: this.homeId(), awayTeamId: this.awayId(), seed, speed: this.speeds[this.speedIndex()].value
       });

@@ -32,7 +32,7 @@ import { PortraitComponent } from './portrait';
         </dl>
       } @else {
         <h2 class="display">Follow one player</h2>
-        <p class="muted">Pick a player in Your view. You'll get their stats here, their heat map on the pitch, and every moment they're involved in.</p>
+        <p class="muted">Press Follow on a player in the Players tab. You'll get their stats here, their heat map on the pitch, and every moment they're involved in.</p>
       }
     </section>
   `,

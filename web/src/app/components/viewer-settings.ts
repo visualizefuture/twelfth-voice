@@ -26,37 +26,7 @@ import { ViewerMode } from '../models';
         </div>
       </fieldset>
 
-      <label>
-        <span>Your club</span>
-        <select (change)="setFavorite($event)">
-          <option value="">No favourite</option>
-          @if (live.info(); as info) {
-            <option [value]="info.home.id" [selected]="profile().favoriteTeamId === info.home.id">{{ info.home.name }}</option>
-            <option [value]="info.away.id" [selected]="profile().favoriteTeamId === info.away.id">{{ info.away.name }}</option>
-          }
-        </select>
-        <small class="muted">Their moments show up more, and are highlighted.</small>
-      </label>
-
-      <label>
-        <span>Follow a player</span>
-        <select (change)="setFocus($event)">
-          <option value="">Whole match</option>
-          @if (live.info(); as info) {
-            <optgroup [label]="info.home.name">
-              @for (p of info.home.squad; track p.id) {
-                <option [value]="p.id" [selected]="profile().focusPlayerId === p.id">{{ p.shirtNumber }}. {{ p.name }} ({{ p.position }})</option>
-              }
-            </optgroup>
-            <optgroup [label]="info.away.name">
-              @for (p of info.away.squad; track p.id) {
-                <option [value]="p.id" [selected]="profile().focusPlayerId === p.id">{{ p.shirtNumber }}. {{ p.name }} ({{ p.position }})</option>
-              }
-            </optgroup>
-          }
-        </select>
-        <small class="muted">The feed follows them, and the pitch shows their heat map.</small>
-      </label>
+      <p class="hint muted">Support a club in the <b>Teams</b> tab and follow a player in the <b>Players</b> tab.</p>
 
       <label>
         <span>Language</span>
@@ -111,6 +81,8 @@ import { ViewerMode } from '../models';
     label { display: grid; gap: 6px; }
     small { font-size: var(--step--1); }
     .segmented { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .hint { margin: -8px 0 0; font-size: var(--step--1); }
+    .hint b { color: var(--chalk); font-weight: 600; }
     .sound { display: grid; gap: 8px; }
     .check { display: flex; gap: 10px; align-items: center; }
     .check input { width: auto; }
@@ -146,16 +118,6 @@ export class ViewerSettingsComponent {
 
   setMode(mode: ViewerMode): void {
     void this.live.updateProfile({ mode });
-  }
-
-  setFavorite(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    void this.live.updateProfile({ favoriteTeamId: value || null });
-  }
-
-  setFocus(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    void this.live.updateProfile({ focusPlayerId: value || null });
   }
 
   setLanguage(event: Event): void {

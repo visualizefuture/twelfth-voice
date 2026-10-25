@@ -10,7 +10,7 @@ interface SoundSettings {
   commentary: boolean;
 }
 
-const DEFAULT_SETTINGS: SoundSettings = { enabled: true, commentary: false };
+const DEFAULT_SETTINGS: SoundSettings = { enabled: true, commentary: true };
 
 /** Moments worth reading aloud when spoken commentary is on (goals get their own call). */
 const SPOKEN_KINDS = new Set(['Kickoff', 'BigChance', 'Card', 'MomentumShift', 'PlayerMilestone', 'HalfTime', 'FullTime']);
@@ -41,16 +41,43 @@ export class SoundService {
   /** Bumped on every goal, so commentary that was loading at the time is dropped. */
   private generation = 0;
   private readonly spoken = new Set<string>();
+  private listening = false;
 
   readonly settings = signal<SoundSettings>(loadSettings());
   /** False once the server says Azure AI Speech isn't configured; the browser's own voice stands in. */
   readonly cloudVoice = signal(true);
 
-  /** Call from a click: creates or resumes the audio context so later sounds may play. */
+  /**
+   * Call from a click: creates or resumes the audio context so later sounds may play. Phones are
+   * stricter than desktops: iOS only unlocks Web Audio if a sound actually starts inside the tap,
+   * and mutes it when the ring switch is on silent unless the page asks for media playback.
+   */
   unlock(): void {
     try {
+      // Safari 16.4+: play like a video (ignores the silent switch) rather than like a notification.
+      const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+      if (session) session.type = 'playback';
+
       this.context ??= new AudioContext();
-      if (this.context.state === 'suspended') void this.context.resume();
+      if (this.context.state !== 'running') void this.context.resume();
+
+      // A one-sample silent sound started inside the tap is what unlocks audio on iOS.
+      const silence = this.context.createBuffer(1, 1, this.context.sampleRate);
+      const source = this.context.createBufferSource();
+      source.buffer = silence;
+      source.connect(this.context.destination);
+      source.start(0);
+
+      if (!this.listening) {
+        this.listening = true;
+        // Phones suspend audio when the tab is hidden or the screen locks; wake it on the next touch.
+        const wake = () => {
+          if (this.context && this.context.state !== 'running') void this.context.resume();
+        };
+        document.addEventListener('visibilitychange', wake);
+        document.addEventListener('touchend', wake, { passive: true });
+        document.addEventListener('click', wake);
+      }
     } catch {
       this.context = null; // no Web Audio; the app stays silent
     }
@@ -223,6 +250,7 @@ export class SoundService {
   private play(clip: AudioBuffer): Promise<void> {
     const ctx = this.context;
     if (!ctx || !this.settings().enabled) return Promise.resolve();
+    if (ctx.state !== 'running') void ctx.resume();
     this.stopVoice();
     const source = ctx.createBufferSource();
     source.buffer = clip;
