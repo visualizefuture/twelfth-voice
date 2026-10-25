@@ -84,6 +84,9 @@ try {
   await page.waitForSelector('tv-match-summary .potm', { timeout: 150_000 });
   await page.waitForTimeout(1000);
   await shot('10-full-time', page.locator('.side'));
+  await page.click('.tabs[aria-label="Match details"] button:has-text("Teams")');
+  await page.waitForTimeout(800);
+  await shot('11-team-stats', page.locator('tv-stats-panel'));
 } catch (err) {
   console.log('no full-time summary:', err.message);
 }

@@ -67,6 +67,29 @@ const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, m
         </div>
 
         <div class="launch">
+          <div class="yours">
+            <fieldset class="mode">
+              <legend>How much detail</legend>
+              <div class="seg">
+                <button type="button" [attr.aria-pressed]="live.profile().mode === 'Casual'" (click)="setMode('Casual')">
+                  <b>Fan</b><span>The big moments, in plain words</span>
+                </button>
+                <button type="button" [attr.aria-pressed]="live.profile().mode === 'Analyst'" (click)="setMode('Analyst')">
+                  <b>Analyst</b><span>Every insight, with the numbers</span>
+                </button>
+              </div>
+            </fieldset>
+            <label class="lang">
+              <span>Language</span>
+              <select name="language" (change)="setLanguage($event)">
+                @for (l of languages; track l.code) {
+                  <option [value]="l.code" [selected]="live.profile().language === l.code">{{ l.name }}</option>
+                }
+              </select>
+              <small class="muted">Commentary, answers and the goal call, all in your language.</small>
+            </label>
+          </div>
+
           <details class="more">
             <summary>More options</summary>
             <div class="options">
@@ -140,7 +163,17 @@ const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, m
     .select { display: flex; gap: 10px; align-items: center; }
     .select select { flex: 1; font-size: var(--step-0); }
 
-    .launch { display: grid; gap: 18px; max-width: 560px; margin: 32px auto 0; text-align: center; }
+    .launch { display: grid; gap: 18px; max-width: 760px; margin: 32px auto 0; text-align: center; }
+    .yours { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; text-align: left; align-items: start; }
+    .mode { border: 0; margin: 0; padding: 0; }
+    .mode legend, .lang > span { font-size: var(--step--1); color: var(--moss); margin-bottom: 6px; }
+    .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .seg button { display: grid; gap: 2px; text-align: left; padding: 10px; }
+    .seg button[aria-pressed="true"] { border-color: var(--floodlight); background: var(--turf); }
+    .seg b { font-family: var(--display); font-size: var(--step-1); }
+    .seg span { font-size: var(--step--1); color: var(--moss); }
+    .lang small { font-size: var(--step--1); }
+    @media (max-width: 640px) { .yours { grid-template-columns: 1fr; } }
     .options { display: grid; gap: 18px; margin-top: 12px; }
     .which { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; }
     .which legend { font-size: var(--step--1); color: var(--moss); margin-bottom: 4px; }
@@ -190,6 +223,26 @@ export class SetupComponent implements OnInit {
   /** The match number used when replaying a match; otherwise every kick-off is a new match. */
   seed: number | null = 7;
   readonly replaySeed = signal(false);
+
+  readonly languages = [
+    { code: 'en', name: 'English' },
+    { code: 'es', name: 'Español' },
+    { code: 'fr', name: 'Français' },
+    { code: 'pt', name: 'Português' },
+    { code: 'de', name: 'Deutsch' },
+    { code: 'it', name: 'Italiano' },
+    { code: 'ar', name: 'العربية' },
+    { code: 'hi', name: 'हिन्दी' },
+    { code: 'ja', name: '日本語' }
+  ];
+
+  setMode(mode: 'Casual' | 'Analyst'): void {
+    void this.live.updateProfile({ mode });
+  }
+
+  setLanguage(event: Event): void {
+    void this.live.updateProfile({ language: (event.target as HTMLSelectElement).value });
+  }
 
   readonly speeds = [
     { value: 30, short: '30×', label: '30×, half a minute per second' },
