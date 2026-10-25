@@ -559,6 +559,9 @@ const TRAIL_LENGTH = 6;
       .banner.goal strong { font-size: var(--step-2); }
       .gfx p { display: none; }
       .stage.stadium { aspect-ratio: 4 / 3; }
+      /* one headline chip at a time on a phone, or the two collide */
+      .chip.right { display: none; }
+      .chip { max-width: 88%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--step--1); }
       .stadium .camera-rig { inset: 30% 4% 3% 4%; }
       .stadium .token .figure { transform: rotateX(calc(var(--tilt) * -1)) scale(0.7); }
       .num { display: none; }
