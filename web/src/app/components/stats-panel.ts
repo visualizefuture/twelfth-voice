@@ -1,14 +1,28 @@
 import { Component, computed, inject } from '@angular/core';
 import { LiveService } from '../live.service';
+import { CrestComponent } from './crest';
 
 interface StatRow { label: string; home: string; away: string; homeShare: number; }
 
 /** Head-to-head team numbers, with a split bar for each row. */
 @Component({
   selector: 'tv-stats-panel',
+  imports: [CrestComponent],
   template: `
     <section aria-label="Team statistics">
       <h2 class="sr">Match stats</h2>
+      @if (live.info(); as info) {
+        <div class="support" role="group" aria-label="Support a club">
+          <span>Support</span>
+          <button type="button" [attr.aria-pressed]="favourite() === info.home.id" (click)="support(info.home.id)">
+            <tv-crest [team]="info.home" [size]="18" />{{ info.home.shortName }}
+          </button>
+          <button type="button" [attr.aria-pressed]="!favourite()" (click)="support(null)">Neutral</button>
+          <button type="button" [attr.aria-pressed]="favourite() === info.away.id" (click)="support(info.away.id)">
+            <tv-crest [team]="info.away" [size]="18" />{{ info.away.shortName }}
+          </button>
+        </div>
+      }
       @if (game(); as g) {
         <p class="read muted">
           {{ g.controlLabel }} game, {{ g.tempo.toLowerCase() }}.
@@ -33,6 +47,10 @@ interface StatRow { label: string; home: string; away: string; homeShare: number
   styles: `
     .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
     .read { margin: 0 0 12px; font-size: var(--step--1); }
+    .support { display: flex; gap: 6px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+    .support span { font-size: var(--step--1); color: var(--moss); margin-right: 2px; }
+    .support button { display: inline-flex; align-items: center; gap: 6px; font-size: var(--step--1); padding: 4px 10px; }
+    .support button[aria-pressed="true"] { border-color: var(--floodlight); background: var(--turf); }
     dl { margin: 0; display: grid; gap: 10px; }
     .row { display: grid; grid-template-columns: 4.5em 1fr 4.5em; align-items: baseline; }
     dt { text-align: center; color: var(--moss); font-size: var(--step--1); }
@@ -46,7 +64,13 @@ interface StatRow { label: string; home: string; away: string; homeShare: number
   `
 })
 export class StatsPanelComponent {
-  private readonly live = inject(LiveService);
+  readonly live = inject(LiveService);
+  readonly favourite = computed(() => this.live.profile().favoriteTeamId);
+
+  /** Your club's moments show up more and are highlighted; the crew writes from your side. */
+  support(teamId: string | null): void {
+    void this.live.updateProfile({ favoriteTeamId: teamId });
+  }
 
   readonly game = computed(() => this.live.state()?.game ?? null);
 

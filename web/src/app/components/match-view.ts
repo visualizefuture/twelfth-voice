@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { Component, afterNextRender, computed, effect, inject, signal, untracked } from '@angular/core';
 import { LiveService } from '../live.service';
 import { AskPanelComponent } from './ask-panel';
 import { CrewRoomComponent } from './crew-room';
@@ -96,6 +96,9 @@ export class MatchViewComponent {
   ]);
 
   constructor() {
+    // The fixtures screen is long; on a phone the match would otherwise open scrolled half-way down.
+    afterNextRender(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior }));
+
     // At the final whistle, open the summary; a new match starts back on Teams.
     effect(() => {
       const finished = this.finished();
