@@ -143,11 +143,11 @@ interface StatRow { label: string; home: string; away: string; homeShare: number
     .race svg { width: 100%; display: block; }
     .grid { stroke: var(--hairline); stroke-width: 1; }
     .half { stroke: var(--hairline); stroke-dasharray: 3 3; }
-    .axis { fill: var(--moss); font-size: 10px; text-anchor: start; }
-    .axis.mid { text-anchor: middle; } .axis.end { text-anchor: end; }
+    svg text.axis { fill: var(--moss); font-size: 10px; text-anchor: start; }
+    svg text.axis.mid { text-anchor: middle; } svg text.axis.end { text-anchor: end; }
     .line { fill: none; stroke-width: 2.5; stroke-linejoin: round; }
     .goal { stroke: var(--night); stroke-width: 1.5; }
-    .tag { font-size: 11px; font-weight: 700; text-anchor: start; }
+    svg text.tag { font-size: 11px; font-weight: 700; text-anchor: start; }
     .shots { display: grid; gap: 6px; margin-bottom: 14px; }
     .shot-row { display: grid; grid-template-columns: 6.5em 1fr 3.6em; gap: 8px; align-items: center; }
     .shot-row .who { font-size: var(--step--1); color: var(--chalk); }
