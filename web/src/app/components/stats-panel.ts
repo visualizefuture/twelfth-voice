@@ -76,8 +76,8 @@ interface StatRow { label: string; home: string; away: string; homeShare: number
             @for (gm of v.race.goals; track $index) {
               <circle [attr.cx]="gm.x" [attr.cy]="gm.y" r="4" [class]="'goal ' + (gm.home ? 'home-fill' : 'away-fill')" />
             }
-            <text [attr.x]="v.race.endX + 4" [attr.y]="v.race.homeY + 4" class="tag home-fill">{{ v.xgHome }}</text>
-            <text [attr.x]="v.race.endX + 4" [attr.y]="v.race.awayY + 4" class="tag away-fill">{{ v.xgAway }}</text>
+            <text [attr.x]="v.race.right + 8" [attr.y]="v.race.homeY + 4" class="tag home-fill">{{ v.homeCode }} {{ v.xgHome }}</text>
+            <text [attr.x]="v.race.right + 8" [attr.y]="v.race.awayY + 4" class="tag away-fill">{{ v.awayCode }} {{ v.xgAway }}</text>
           </svg>
         </figure>
 
@@ -147,7 +147,7 @@ interface StatRow { label: string; home: string; away: string; homeShare: number
     .axis.mid { text-anchor: middle; } .axis.end { text-anchor: end; }
     .line { fill: none; stroke-width: 2.5; stroke-linejoin: round; }
     .goal { stroke: var(--night); stroke-width: 1.5; }
-    .tag { font-size: 12px; font-weight: 700; text-anchor: start; }
+    .tag { font-size: 11px; font-weight: 700; text-anchor: start; }
     .shots { display: grid; gap: 6px; margin-bottom: 14px; }
     .shot-row { display: grid; grid-template-columns: 6.5em 1fr 3.6em; gap: 8px; align-items: center; }
     .shot-row .who { font-size: var(--step--1); color: var(--chalk); }
@@ -195,6 +195,8 @@ export class StatsPanelComponent {
     const possHome = Math.round(h.possessionPct);
     return {
       homeShort: info.home.shortName,
+      homeCode: info.home.id,
+      awayCode: info.away.id,
       awayShort: info.away.shortName,
       possHome,
       possAway: 100 - possHome,
@@ -213,7 +215,7 @@ export class StatsPanelComponent {
   private race(homeXg: number, awayXg: number) {
     const info = this.live.info()!;
     const points = this.live.timeline();
-    const left = 24, right = 284, top = 8, bottom = 112; // room on the right for the end labels
+    const left = 24, right = 262, top = 8, bottom = 112; // room on the right for the end labels
     const lastSecond = points.length ? points[points.length - 1].matchSecond : 0;
     const span = Math.max(5400, lastSecond + 60);
     const top_ = Math.max(1, homeXg, awayXg, ...points.map(p => Math.max(p.homeXg, p.awayXg)));
