@@ -1,14 +1,52 @@
 # Twelfth Voice
 
 [![CI](https://github.com/visualizefuture/twelfth-voice/actions/workflows/ci.yml/badge.svg)](https://github.com/visualizefuture/twelfth-voice/actions/workflows/ci.yml)
+[![Deploy to Azure](https://github.com/visualizefuture/twelfth-voice/actions/workflows/deploy.yml/badge.svg)](https://github.com/visualizefuture/twelfth-voice/actions/workflows/deploy.yml)
 
 **Every fan gets their own match.**
 
-Twelfth Voice turns synthetic football events into explainable match intelligence: live stats, key moments, *why* they matter, broadcast-ready overlays and personalised commentary for every kind of viewer, from the casual fan to the data-hungry analyst, in any language.
+Twelfth Voice turns synthetic football events into explainable, personalised match intelligence. A live broadcast for one viewer: a floodlit stadium, all 22 players, broadcast graphics, and commentary written by an AI crew that **fact-checks every number before it goes on air**, in the viewer's language and at their level of detail.
 
-Built for the *Microsoft × Premier League — Inside the Game* developer hackathon.
+**▶ Try it live: [twelfth-voice.lemonpond-53891994.eastus2.azurecontainerapps.io](https://twelfth-voice.lemonpond-53891994.eastus2.azurecontainerapps.io)** (the first visit can take a few seconds while the free database wakes up)
 
-> All clubs, players, stadiums and matches in this repository are fictional and synthetically generated. No real match data or footage is used.
+Built for the *Microsoft × Premier League: Inside the Game* developer hackathon.
+
+![The live match screen: stadium view, AI-written story, team stats](docs/images/match-screen.jpg)
+
+> All clubs, players, stadiums and matches are fictional and synthetically generated. No real match data, names, logos or footage are used.
+
+## What it does
+
+- **A live match for every viewer.** A calibrated simulator plays the match event by event: passes, shots, xG, pressing, sprints. A stadium view shows all 22 players in their kits, the ball bending and rising through each kick, and broadcast graphics placed by each insight's overlay hint.
+- **An AI broadcast crew that checks its facts.** Commentator, Fact-checker, Localizer, Analyst and Storyteller agents built with Microsoft Agent Framework on Microsoft Foundry. Every number in a draft is traced back to the match data; anything that fails goes back for one rewrite, or the data-written line stays. The crew room shows every draft, verdict and reason.
+- **Your view.** Fan or analyst, your club, follow one player, nine languages. The same match tells a different story to each viewer, over their own SignalR stream.
+- **Ask the match.** Ask anything in any language; the Analyst agent answers by calling tools over the live data.
+- **Goals you can hear and replay.** A neural goal call from Azure AI Speech in the viewer's language, a crowd roar and confetti, then a slow-motion replay rebuilt from the event log.
+- **Teams, players and full time.** Head-to-head team stats, any two players compared live, and a full-time summary with the player of the match and every goal ready to replay.
+- **An MCP server.** The live match data as tools for any MCP client, such as GitHub Copilot agent mode.
+
+| Goal: call, confetti and crests | Players compared | Full time |
+|---|---|---|
+| ![Goal celebration with confetti](docs/images/goal-confetti.jpg) | ![Players tab comparing the captains](docs/images/players-tab.jpg) | ![Full-time summary with goal replays](docs/images/full-time.jpg) |
+
+## Built with Microsoft
+
+| Technology | How Twelfth Voice uses it |
+|---|---|
+| **Microsoft Foundry** (`gpt-4.1-mini`) | The model behind every agent, reached keylessly with a managed identity |
+| **Microsoft Agent Framework** | The broadcast crew: Commentator, Fact-checker, Localizer, Analyst (with tools) and Storyteller |
+| **Model Context Protocol** (C# SDK) | `/mcp` exposes the live match data as tools for any agent |
+| **Azure AI Speech** | Neural goal calls and spoken commentary in nine languages, cached per clip |
+| **Azure Container Apps** | One container serves the API, the SignalR hub, the MCP server and the Angular app |
+| **Azure SQL Database** | Matches, events and insights (free offer, Entra-only sign-in, managed identity) |
+| **GitHub Actions** | CI on every pull request (build, tests, vulnerability checks, container smoke test) and deploys on every merge, signed in with OIDC |
+| **.NET 10, ASP.NET Core, SignalR, EF Core** | The simulator, intelligence engine, API and live streams |
+
+## Architecture
+
+![Architecture: the fan app talks to one .NET 10 container on Azure Container Apps, which uses Microsoft Foundry, Azure AI Speech and Azure SQL](docs/images/architecture.png)
+
+**Facts from code, words from AI, nothing unverified on air.** The simulator and intelligence engine produce every number and a rule-written line for each moment, shown instantly. The crew rewrites it per audience and language; the line is swapped in only if the fact-checker approves it. If the model is slow, over budget or wrong, the data-written line stays. Deployment details are in [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## The pipeline
 
@@ -18,7 +56,7 @@ Built for the *Microsoft × Premier League — Inside the Game* developer hackat
 | **Interpret** | Running team and player stats, pass distance / accuracy / difficulty, ball and shot speed, xG, distance and top speed, plus rolling momentum, control-vs-chaos, pressing and tempo indicators. | `TwelfthVoice.Intelligence` |
 | **Explain** | Every insight carries a plain-language *why it matters*, an analyst note and the evidence numbers it was derived from. | `MatchAnalyzer`, `Narration`, `RecapBuilder` |
 | **Render** | Insights include a machine-readable overlay hint (template, placement, duration, priority), streamed live over SignalR and drawn over a live pitch. | `OverlayHint`, `TwelfthVoice.Api`, `web/` |
-| **Personalise** | Casual vs analyst modes, favourite club, player-focus mode, language preference — each viewer gets their own stream. | `InsightPersonalizer`, SignalR hub; translation via agents *(in progress)* |
+| **Personalise** | Fan vs analyst modes, favourite club, player-focus mode and nine languages: each viewer gets their own stream, translated and re-checked by the crew. | `InsightPersonalizer`, SignalR hub, `BroadcastCrew` |
 
 ## Quick start
 
@@ -120,13 +158,14 @@ npm start
 
 Open **http://localhost:4200**. The dev server forwards `/api` and `/hubs` to the API on port 5080.
 
-- **Live pitch**: the ball moves through every action, the player on the ball is tagged with what they did (pass length, shot speed, sprint speed), and insights appear as broadcast graphics where their overlay hint says.
-- **Heat map and shot map** layers: the heat map follows whichever player you pick.
+- **Stadium and tactical cameras**: the pitch in 3D with stands, floodlights and goals, or a flat tactical board; all 22 players with shirt numbers; curved, lofted ball flight.
+- **Broadcast graphics** in a rail under the pitch, so they never cover the play; short chips on the pitch's top edge.
+- **Heat map** for either club or the player you follow, and a **shot map** sized by xG.
 - **Momentum chart**: who was on top, minute by minute, with goals marked.
-- **The story**: the personalised feed of key moments and why they matter.
-- **Your view**: fan or analyst, your club, follow a player, language.
-- **Ask the match**: ask a question in any language; the Analyst agent looks it up in the live data.
-- **The story**: the Storyteller's recap, written automatically at full time.
+- **Goals**: neural goal call, crowd roar, confetti in the club's colours, and an automatic slow-motion replay; every goal has a replay button with the scorer's crest.
+- **Side tabs**: Teams (head-to-head stats), Players (any two players, live) and Full time (summary, player of the match, replays).
+- **Your view**: fan or analyst, your club, follow a player, language, sound and replay settings.
+- **Ask the match** and **The story** (the Storyteller's recap) beside the pitch and below it.
 
 ## Live API
 
@@ -187,11 +226,16 @@ src/
   TwelfthVoice.Cli           Command-line runner (teams / generate / recap / replay)
   TwelfthVoice.Agents        The AI broadcast crew: Agent Framework agents, fact-checker, analyst tools
   TwelfthVoice.Api           ASP.NET Core API, SignalR hub, EF Core storage, live console page
-web/                         Angular fan app: live pitch, overlays, momentum, stats, personalised feed
+web/                         Angular fan app: stadium and tactical pitch, overlays, replays, tabs, personalised feed
+deploy/azure-setup.sh        One-time Azure setup (Container Apps, Azure SQL, managed identities, GitHub OIDC)
+tools/screenshots/           Playwright script that drives the whole app on CI and captures screenshots
+Dockerfile                   One image: the Angular app served by the .NET 10 API
 tests/
   TwelfthVoice.Tests         xUnit tests for simulator realism, stats, insights, personalisation and live sessions
 docs/
-  ARCHITECTURE.md            Target architecture and build plan
+  ARCHITECTURE.md            Architecture notes
+  DEPLOY.md                  Deploying to Azure: setup, costs, configuration
+  images/                    Screenshots and the architecture diagram
   EVENT-SCHEMA.md            Event and insight formats for overlay renderers
 ```
 
