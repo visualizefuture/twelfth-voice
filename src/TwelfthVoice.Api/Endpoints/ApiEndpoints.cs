@@ -39,7 +39,8 @@ public static class ApiEndpoints
         matches.MapGet("", async (MatchRegistry registry, IMatchStore store, CancellationToken ct) => Results.Ok(new
             {
                 live = registry.All.Select(s => s.Summary()),
-                stored = await store.RecentMatchesAsync(20, ct)
+                // Never keep the start screen waiting on a database that is waking up.
+                stored = await StorageReads.RecentMatchesOrNoneAsync(store, 20, StorageReads.ScreenBudget, ct)
             }))
             .WithName("ListMatches")
             .WithSummary("Matches running in this instance, plus recent matches from storage.");

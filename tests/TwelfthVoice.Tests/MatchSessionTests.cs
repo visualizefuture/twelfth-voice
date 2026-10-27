@@ -153,3 +153,43 @@ public class McpToolsTests
         Assert.Contains("error", tools.StartMatch("XXX", "IRV"));
     }
 }
+
+public class StorageReadsTests
+{
+    /// <summary>A store whose reads hang, like a paused serverless database waking up.</summary>
+    private sealed class SleepyStore : IMatchStore
+    {
+        public string Mode => "Sql";
+        public void SaveMatch(MatchInfo info, string status) { }
+        public void AppendEvent(MatchEvent matchEvent) { }
+        public void AppendInsight(Insight insight) { }
+        public void UpdateMatchStatus(string matchId, string status, int homeScore, int awayScore, bool finished) { }
+        public async Task<IReadOnlyList<StoredMatch>> RecentMatchesAsync(int take, CancellationToken cancellationToken)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(30)); // ignores the token, like a slow driver
+            return Array.Empty<StoredMatch>();
+        }
+        public Task<StoredProfile?> GetProfileAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult<StoredProfile?>(null);
+        public Task<StoredProfile> SaveProfileAsync(Guid? id, ViewerProfile profile, CancellationToken cancellationToken) =>
+            Task.FromResult(new StoredProfile(Guid.NewGuid(), profile, DateTimeOffset.UtcNow));
+    }
+
+    [Fact]
+    public async Task A_sleeping_database_does_not_hold_up_the_start_screen()
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var stored = await StorageReads.RecentMatchesOrNoneAsync(new SleepyStore(), 20, TimeSpan.FromMilliseconds(300), CancellationToken.None);
+        watch.Stop();
+
+        Assert.Empty(stored);
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(3), $"took {watch.Elapsed}");
+    }
+
+    [Fact]
+    public async Task A_ready_database_still_answers()
+    {
+        var store = new InMemoryMatchStore();
+        var stored = await StorageReads.RecentMatchesOrNoneAsync(store, 20, TimeSpan.FromSeconds(2), CancellationToken.None);
+        Assert.NotNull(stored);
+    }
+}
