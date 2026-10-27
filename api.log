@@ -1,0 +1,10 @@
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:5080
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Production
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: /home/runner/work/twelfth-voice/twelfth-voice/src/TwelfthVoice.Api
+info: Match.TV-HAR-IRV-7-db05ae[0]
+      Match TV-HAR-IRV-7-db05ae finished 3-2

@@ -1,0 +1,20 @@
+console error: Failed to load resource: the server responded with a status of 404 (Not Found)
+saved 00-intro
+saved 01-fixtures
+saved 01b-fixtures-options
+console error: Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+saved 02-stadium-live
+saved 02b-pitch-stadium
+saved 03-goal
+saved 03b-goal-pitch
+saved 03c-confetti
+saved 04-replay
+saved 04b-replay-pitch
+saved 05-replay-late
+saved 08-goal-closeup
+saved 09-players
+saved 06b-team-heat
+saved 06-tactical
+saved 10-full-time
+saved 11-team-stats
+saved 07-phone
