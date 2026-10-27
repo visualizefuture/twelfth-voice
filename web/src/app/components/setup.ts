@@ -260,9 +260,11 @@ export class SetupComponent implements OnInit {
     for (let attempt = 1; attempt <= CONNECT_ATTEMPTS; attempt++) {
       try {
         this.teams.set(await this.api.teams());
-        const list = await this.api.matches();
-        this.liveMatches.set(list.live.filter(m => m.status !== 'Finished'));
+        // Kick off is ready as soon as the clubs are in; matches already playing fill in after.
         this.connecting.set(false);
+        void this.api.matches()
+          .then(list => this.liveMatches.set(list.live.filter(m => m.status !== 'Finished')))
+          .catch(() => undefined);
         return;
       } catch {
         if (attempt < CONNECT_ATTEMPTS) await delay(CONNECT_INTERVAL_MS);
