@@ -13,7 +13,7 @@ Twelfth Voice turns synthetic football events into explainable, personalised mat
 
 Built for the *Microsoft × Premier League: Inside the Game* developer hackathon.
 
-![The live match screen: a goal in the stadium view, the AI-written story and the Teams tab](docs/images/match-screen.jpg)
+![The live match screen: a goal in the stadium view, the AI-written story and the Teams tab](docs/images/match-screen-v2.jpg)
 
 > All clubs, players, stadiums and matches are fictional and synthetically generated. No real match data, names, logos or footage are used.
 
@@ -29,11 +29,11 @@ Built for the *Microsoft × Premier League: Inside the Game* developer hackathon
 
 | Start: clubs, detail and language | Goal: confetti, curved passes, real goals |
 |---|---|
-| ![The start screen with team sheets, Fan or Analyst, and language](docs/images/fixtures.jpg) | ![Goal celebration with confetti in the stadium view](docs/images/goal-confetti.jpg) |
+| ![The start screen with team sheets, Fan or Analyst, and language](docs/images/fixtures-v2.jpg) | ![Goal celebration with confetti in the stadium view](docs/images/goal-confetti-v2.jpg) |
 
 | Teams: possession, passing, xG race | Players compared, with Follow | Full time |
 |---|---|---|
-| ![Teams tab with possession ring, pass gauges, xG race and shots](docs/images/team-stats.jpg) | ![Players tab comparing the captains](docs/images/players-tab.jpg) | ![Full-time summary with player of the match and goal replays](docs/images/full-time.jpg) |
+| ![Teams tab with possession ring, pass gauges, xG race and shots](docs/images/team-stats.jpg) | ![Players tab comparing the captains](docs/images/players-tab-v2.jpg) | ![Full-time summary with player of the match and goal replays](docs/images/full-time-v2.jpg) |
 
 ## Built with Microsoft
 
