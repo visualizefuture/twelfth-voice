@@ -5,7 +5,7 @@ live channel and the MCP server. It signs in to Microsoft Foundry and Azure SQL 
 identity, so the only key it holds is the Azure AI Speech key (kept as a Container Apps secret).
 
 ```
-GitHub (merge to master)
+GitHub (Actions: Deploy to Azure)
   └─ Actions: build image ─► Azure Container Registry ─► Container Apps (twelfth-voice, 1 replica)
                                                             ├─ Microsoft Foundry (gpt-4.1-mini)   managed identity
                                                             ├─ Azure SQL Database (free offer)     managed identity
@@ -25,7 +25,8 @@ GitHub (merge to master)
 4. If the first deploy fails to sign in with `AADSTS700213 ... subject 'repo:owner@<id>/<repo>@<id>:ref:refs/heads/master'`,
    your repo uses GitHub's ID-based subject. Rerun the script with
    `GITHUB_ID_SUBJECT='<that subject>'` (keep any `SQL_LOCATION`/`SQL_SERVER` you used) and deploy again.
-5. Run **Deploy to Azure** from the Actions tab (or merge to `master`). It builds, rolls out and smoke-tests the app,
+5. Run **Deploy to Azure** from the Actions tab. (During judging it also ran on every merge to `master`; to restore
+   that, add a `push` trigger for `master` back to `.github/workflows/deploy.yml`.) It builds, rolls out and smoke-tests the app,
    and prints its URL.
 
 ## What it costs

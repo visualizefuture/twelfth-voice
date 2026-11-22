@@ -7,9 +7,9 @@
 
 Twelfth Voice turns synthetic football events into explainable, personalised match intelligence. A live broadcast for one viewer: a floodlit stadium, all 22 players, broadcast graphics, and commentary written by an AI crew that **fact-checks every number before it goes on air**, in the viewer's language and at their level of detail.
 
-**▶ Try it live: [twelfth-voice.lemonpond-53891994.eastus2.azurecontainerapps.io](https://twelfth-voice.lemonpond-53891994.eastus2.azurecontainerapps.io)** (the first visit can take a few seconds while the free database wakes up)
-
 **🎬 Watch the 2-minute demo: [youtu.be/0zcZGuSOt4o](https://youtu.be/0zcZGuSOt4o)**
+
+The live demo ran on Azure Container Apps throughout judging (Oct 27 – Nov 10, 2026) and is now offline. To run it yourself, follow the [Quick start](#quick-start) or redeploy with [`deploy/azure-setup.sh`](docs/DEPLOY.md).
 
 Built for the *Microsoft × Premier League: Inside the Game* developer hackathon.
 
