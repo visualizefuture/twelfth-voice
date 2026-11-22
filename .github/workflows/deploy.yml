@@ -1,11 +1,11 @@
 name: Deploy to Azure
 
-# Builds the container and rolls it out to Azure Container Apps on every merge to master.
+# Builds the container and rolls it out to Azure Container Apps.
 # Signs in with OpenID Connect (deploy/azure-setup.sh creates the trust), so no Azure secret is stored.
+# It ran on every merge to master during judging. The hackathon Azure subscription has since closed,
+# so it now runs only on demand: run deploy/azure-setup.sh in a new subscription, add the secrets
+# (docs/DEPLOY.md), then start it from the Actions tab or restore the push trigger.
 on:
-  push:
-    branches: [master]
-    paths-ignore: ['**.md', 'docs/**', 'tools/**']
   workflow_dispatch:
 
 permissions:
